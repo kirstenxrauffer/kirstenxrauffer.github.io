@@ -5,4 +5,6 @@ export interface WatercolorCanvasProps {
   bloomOrigin?: [number, number];
   /** Hero image path. When provided, overrides the internal random pick. */
   image?: string;
+  /** Called once, the moment the GSAP reveal tween fires (after image load). */
+  onRevealStart?: () => void;
 }

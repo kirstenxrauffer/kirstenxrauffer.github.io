@@ -8,12 +8,10 @@ export const HERO_IMAGES = [
   '/images/IMG_1567.jpg',
   '/images/IMG_1941.jpg',
   '/images/IMG_2406.jpg',
-  '/images/IMG_3653.jpg',
   '/images/IMG_4597.jpg',
   '/images/IMG_4607.jpg',
   '/images/IMG_5001.jpg',
   '/images/IMG_5002.jpg',
-  '/images/IMG_5003.jpg',
   '/images/IMG_5004.jpg',
   '/images/IMG_5007.jpg',
   '/images/IMG_5009.jpg',
@@ -39,7 +37,7 @@ export const N_PRE_BLUR = 3;
 // organic fBm-warped boundary visible on the edges.  At 0.9 the ring sits at
 // front ≈ 0.73, which lands on the visible screen edges (not off-screen).
 // ---------------------------------------------------------------------------
-export const REVEAL_DURATION = 6.0;
+export const REVEAL_DURATION = 7.5;
 export const REVEAL_PROGRESS_TARGET = .65;
 
 // ---------------------------------------------------------------------------

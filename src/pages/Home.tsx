@@ -6,7 +6,7 @@ function Home() {
       <WaveText as="h1" text="hi, i'm kirsten." />
       <WaveText
         as="p"
-        text="I'm an engineer"
+        text="i'm a full-stack engineer"
         stagger={0.02}
         delay={0.3}
       />

@@ -1,0 +1,220 @@
+/* ── NavMenu ─────────────────────────────────────────────────────────────────
+ * Staggered fade-in nav buttons (pattern from kirstenandizzy Slider component).
+ * Each button gets --i (0-based) for animation stagger delay.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Dim overlay — covers canvas, below nav ─────────────────────────────── */
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  background: rgba(0, 0, 0, 0);
+  pointer-events: none;
+  transition: background 0.35s ease;
+}
+
+.nav-overlay--visible {
+  background: rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+  cursor: default;
+}
+
+/* ── Nav container ─────────────────────────────────────────────────────── */
+.nav-menu {
+  position: fixed;
+  left: 1.5rem;
+  top: calc(50% - 75px);
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+
+/* ── Item wrapper — relative so sub-menu can be positioned off it ──────── */
+.nav-menu__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Top-level button ──────────────────────────────────────────────────── */
+.nav-menu__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  color: white;
+  font-family: inherit;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  text-decoration: none;
+
+  opacity: 0;
+  transform: translateY(16px);
+  animation: nav-fade-in 0.6s ease forwards;
+  animation-delay: calc(var(--i) * 150ms);
+
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.nav-menu__btn:hover,
+.nav-menu__btn--active {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2), 0 0 25px rgba(255, 255, 255, 0.1);
+}
+
+/* ── Expand arrow ───────────────────────────────────────────────────────── */
+.nav-menu__arrow {
+  margin-left: auto;
+  font-size: 0.65rem;
+  opacity: 0.6;
+  transition: transform 0.25s ease;
+  display: inline-block;
+  padding-left: 0.4rem;
+}
+
+.nav-menu__arrow--open {
+  transform: rotate(90deg);
+}
+
+/* ── Sub-menu — absolutely positioned, floats to chosen side ───────────── */
+.nav-menu__sub {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  /* default: right side */
+  left: calc(100% + 0.5rem);
+  top: 0;
+}
+
+.nav-menu__sub--right {
+  left: calc(100% + 0.5rem);
+  right: auto;
+  top: 0;
+  bottom: auto;
+  flex-direction: column;
+}
+
+.nav-menu__sub--left {
+  right: calc(100% + 0.5rem);
+  left: auto;
+  top: 0;
+  bottom: auto;
+  flex-direction: column;
+}
+
+.nav-menu__sub--bottom {
+  top: calc(100% + 0.35rem);
+  bottom: auto;
+  left: 0;
+  right: auto;
+  flex-direction: column;
+}
+
+.nav-menu__sub--top {
+  bottom: calc(100% + 0.35rem);
+  top: auto;
+  left: 0;
+  right: auto;
+  flex-direction: column-reverse; /* so stagger reads top-to-bottom visually */
+}
+
+/* ── Sub-item button ───────────────────────────────────────────────────── */
+.nav-menu__sub-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  color: white;
+  font-family: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  text-decoration: none;
+
+  opacity: 0;
+  transform: translateY(12px);
+  animation: nav-fade-in 0.5s ease forwards;
+  animation-delay: calc(var(--i) * 120ms);
+
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.nav-menu__sub-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15), 0 0 20px rgba(255, 255, 255, 0.08);
+}
+
+/* Brand accent via --brand-color CSS variable */
+.nav-menu__sub-btn--branded {
+  background: color-mix(in srgb, var(--brand-color) 28%, transparent);
+  border-color: color-mix(in srgb, var(--brand-color) 70%, transparent);
+}
+
+.nav-menu__sub-btn--branded:hover {
+  background: color-mix(in srgb, var(--brand-color) 42%, transparent);
+  border-color: color-mix(in srgb, var(--brand-color) 95%, transparent);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--brand-color) 50%, transparent),
+    0 0 25px color-mix(in srgb, var(--brand-color) 25%, transparent);
+}
+
+.nav-menu__brand-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-color);
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* ── Keyframe ───────────────────────────────────────────────────────────── */
+@keyframes nav-fade-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── Mobile: move nav to bottom-center ─────────────────────────────────── */
+@media (max-width: 640px) {
+  .nav-menu {
+    left: 50%;
+    top: auto;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* On mobile the item is relatively laid out in a row, so sub-menu
+     can't use absolute positioning off the item the same way.
+     Default to bottom. */
+  .nav-menu__sub,
+  .nav-menu__sub--right,
+  .nav-menu__sub--left {
+    left: 0;
+    right: auto;
+    top: calc(100% + 0.35rem);
+    bottom: auto;
+    flex-direction: column;
+  }
+}

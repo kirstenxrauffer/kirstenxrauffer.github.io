@@ -1,16 +1,15 @@
-import { useState, useRef, useCallback } from 'react';
-import { Link, Route, Routes, useLocation } from 'react-router-dom';
-import { useAppDispatch, useAppSelector } from './app/hooks';
-import { toggleTheme } from './features/theme/themeSlice';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { Route, Routes } from 'react-router-dom';
+import { useAppSelector } from './app/hooks';
 import { FairyCanvas } from './features/fairies';
 import { WatercolorCanvas } from './features/watercolor';
-import { HERO_IMAGES } from './features/watercolor/constants';
+import { HERO_IMAGES, REVEAL_DURATION } from './features/watercolor/constants';
+import NavMenu from './components/NavMenu';
 import Home from './pages/Home';
 import Work from './pages/Work';
 import About from './pages/About';
 import './App.css';
 
-// Fisher-Yates shuffle — runs once at app init to randomise scene order.
 function shuffle<T>(arr: T[]): T[] {
   const out = [...arr];
   for (let i = out.length - 1; i > 0; i--) {
@@ -20,26 +19,63 @@ function shuffle<T>(arr: T[]): T[] {
   return out;
 }
 
+// Isolated so route-driven re-renders never reach the canvas.
+const SceneBackground = React.memo(function SceneBackground({
+  currentImage,
+  fadingOut,
+  onRevealStart,
+}: {
+  currentImage: string;
+  fadingOut: boolean;
+  onRevealStart: () => void;
+}) {
+  return (
+    <div style={{ opacity: fadingOut ? 0 : 1, transition: 'opacity 0.5s ease' }}>
+      <WatercolorCanvas
+        key={currentImage}
+        image={currentImage}
+        onRevealStart={onRevealStart}
+      />
+    </div>
+  );
+});
+
 function App() {
   const mode = useAppSelector((s) => s.theme.mode);
-  const dispatch = useAppDispatch();
-  const { pathname } = useLocation();
-  const slug = pathname.replace(/^\//, '');
 
-  // Scene queue: shuffled once on mount, consumed front-to-back. Clicking the
-  // fairy advances to the next image; when the queue has one entry left there
-  // are no more unique scenes and clicks do nothing.
   const [sceneQueue, setSceneQueue] = useState<string[]>(() => shuffle(HERO_IMAGES));
   const [fadingOut, setFadingOut] = useState(false);
+
+  // revealStarted: fires immediately on canvas mount → enables section entrance animation
+  const [revealStarted, setRevealStarted] = useState(false);
+  // revealComplete: set by a timer after the full reveal plays out →
+  //   shows NavMenu + locks sections to final state so nav clicks don't replay animations
+  const [revealComplete, setRevealComplete] = useState(false);
+
   const transitioningRef = useRef(false);
+
+  const handleRevealStart = useCallback(() => setRevealStarted(true), []);
+
+  // Timer-based reveal completion — independent of GSAP / canvas lifecycle / StrictMode.
+  // Fires (REVEAL_DURATION + 1.5s tween delay + 1s buffer) after revealStarted.
+  // StrictMode double-fire is safe: cleanup cancels the first timer, second is canonical.
+  useEffect(() => {
+    if (!revealStarted) return;
+    const id = window.setTimeout(
+      () => setRevealComplete(true),
+      (REVEAL_DURATION + 1.5 + 1) * 1000,
+    );
+    return () => clearTimeout(id);
+  }, [revealStarted]);
 
   const handleFairyClick = useCallback(() => {
     if (transitioningRef.current || sceneQueue.length <= 1) return;
     transitioningRef.current = true;
     setFadingOut(true);
-    // Swap after the CSS fade-out completes (500 ms), with a 100 ms buffer.
     setTimeout(() => {
       setSceneQueue(q => q.slice(1));
+      setRevealStarted(false);
+      setRevealComplete(false);
       setFadingOut(false);
       transitioningRef.current = false;
     }, 600);
@@ -47,35 +83,23 @@ function App() {
 
   const currentImage = sceneQueue[0];
 
+  const mainClass = [
+    'app__main',
+    revealStarted  ? 'app__main--revealed' : '',
+    revealComplete ? 'app__main--stable'   : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <div className={`app app--${mode}`}>
-      {/* Opacity wrapper drives the fade-out/fade-in transition. The inner
-          WatercolorCanvas is position:fixed so it covers the viewport;
-          parent opacity still applies to fixed descendants via compositing. */}
-      <div style={{ opacity: fadingOut ? 0 : 1, transition: 'opacity 0.5s ease' }}>
-        <WatercolorCanvas key={currentImage} slug={slug} image={currentImage} />
-      </div>
+      <SceneBackground
+        currentImage={currentImage}
+        fadingOut={fadingOut}
+        onRevealStart={handleRevealStart}
+      />
       <FairyCanvas onFairyClick={handleFairyClick} />
-      <header className="app__header">
-        <Link to="/" className="app__brand">
-          kirsten rauffer
-        </Link>
-        <nav className="app__nav">
-          <Link to="/">home</Link>
-          <Link to="/work">work</Link>
-          <Link to="/about">about</Link>
-          <button
-            type="button"
-            className="app__theme-toggle"
-            onClick={() => dispatch(toggleTheme())}
-            aria-label="toggle theme"
-          >
-            {mode === 'dark' ? '☀' : '☾'}
-          </button>
-        </nav>
-      </header>
+      {revealComplete && <NavMenu />}
 
-      <main className="app__main">
+      <main className={mainClass}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/work" element={<Work />} />

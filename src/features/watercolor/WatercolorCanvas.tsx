@@ -15,8 +15,11 @@ export default function WatercolorCanvas({
   slug = '',
   bloomOrigin = [0.5, 0.5],
   image,
+  onRevealStart,
 }: WatercolorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const onRevealStartRef = useRef(onRevealStart);
+  onRevealStartRef.current = onRevealStart;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -153,6 +156,10 @@ export default function WatercolorCanvas({
     const startTime = performance.now();
     const getElapsed = () => (performance.now() - startTime) / 1000;
 
+    // Notify immediately so the section animation starts on page paint,
+    // not after the potentially slow hero image load.
+    onRevealStartRef.current?.();
+
     // ---- GSAP reveal tween ------------------------------------------------
     let tweenStarted = false;
     const startRevealTween = () => {
@@ -161,16 +168,18 @@ export default function WatercolorCanvas({
       gsap.to(progressObj, {
         value: REVEAL_PROGRESS_TARGET,
         duration: REVEAL_DURATION,
+        delay: 1.5,
         ease: 'power2.out',
         onUpdate: () => { passUniforms.uProgress.value = progressObj.value; },
       });
     };
 
     // ---- Hero image load --------------------------------------------------
-    // 1. Snapshot and freeze the warp field — no animated swimming during reveal.
-    // 2. Run N_PRE_BLUR Kuwahara passes (sync GPU commands) into ping-pong RTs.
-    // 3. Plug the final blurred texture into passUniforms.uColor.
-    // 4. Start the reveal tween.
+    // Tween starts in parallel with the image load — the watercolor animates on
+    // paper texture while the image loads, then the pre-blurred image is swapped
+    // in seamlessly when ready.
+    startRevealTween();
+
     const colorTex = texLoader.load(
       image ?? pickHeroImage(),
       (tex) => {
@@ -197,7 +206,6 @@ export default function WatercolorCanvas({
         renderer.setRenderTarget(null);
 
         passUniforms.uColor.value = src;
-        startRevealTween();
       },
     );
 

@@ -91,17 +91,31 @@
   margin: 0 auto;
   position: relative;
   z-index: 1;
+}
 
-  section {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: black;
-    animation:
-      section-fade  0.8s ease-out           0.15s both,
-      section-scale 4s   cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
-  }
+.app__main section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: black;
+  opacity: 0;
+  transform: scale(0);
+}
+
+.app__main--revealed section {
+  animation:
+    section-fade  0.8s ease-out                       both,
+    section-scale 2s   cubic-bezier(0.2, 0.8, 0.4, 1) both;
+}
+
+/* After the reveal tween completes, lock all sections to their final visible
+   state. Any section mounted by a subsequent route change will appear
+   immediately instead of replaying the scale-in animation. */
+.app__main--stable section {
+  animation: none;
+  opacity: 1;
+  transform: scale(1);
 }
 
 @keyframes section-fade {

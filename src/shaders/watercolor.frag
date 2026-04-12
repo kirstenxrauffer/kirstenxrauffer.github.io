@@ -331,12 +331,13 @@ vec3 revealMask(vec2 uv, float warpField, vec2 warpRg, out float W) {
 // CLEAR_FADE     = 0.12 (narrower than uRevealSpread so center is fully white).
 // ---------------------------------------------------------------------------
 float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingColor) {
-    const float CLEAR_PROGRESS = 0.22;
-    const float CLEAR_FADE     = 0.15;
+    const float CLEAR_PROGRESS = 0.18;  // ring radius
+    const float WHITE_PROGRESS = 0.30;  // white fade radius (larger than ring)
+    const float CLEAR_FADE     = 0.18;
 
-    // Identical origin to revealMask — same fBm-offset bloom point, shifted left.
+    // Identical origin to revealMask — same fBm-offset bloom point.
     vec2 origin = vec2(
-        uBloomOrigin.x + 0.12 * sin(uBloomSeed * 7.391) - 0.07,
+        uBloomOrigin.x + 0.12 * sin(uBloomSeed * 7.391) - 0.02,
         uBloomOrigin.y
     );
 
@@ -350,12 +351,19 @@ float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingCol
     // Cap at 30% of uWarpInfluence so the boundary stays organic but compact.
     float front = distance(uv, origin) + uWarpInfluence * 0.3 * warpField + grainDisplace;
 
+    // Animate the clear zone radius so the white fade and ring grow together.
+    // clearRingFade drives both: the white zone expands from 0 → CLEAR_PROGRESS
+    // while the ring tracks that same animated boundary — they appear and grow simultaneously.
+    float clearRingFade     = clamp(uProgress / 0.5, 0.0, 1.0);
+    float animatedClearProg = CLEAR_PROGRESS * clearRingFade;  // ring boundary
+    float animatedWhiteProg = WHITE_PROGRESS * clearRingFade;  // white zone boundary
+
     // Core mask: 0 inside zone (paper-white), capped at 0.82 outside so a soft
     // white halo lingers at the edges rather than fully resolving to the image.
-    float coreMask = min(smoothstep(CLEAR_PROGRESS - CLEAR_FADE, CLEAR_PROGRESS, front), 0.82);
+    float coreMask = min(smoothstep(animatedWhiteProg - CLEAR_FADE, animatedWhiteProg, front), 0.82);
 
     // Directional fibers past the clear zone boundary — same technique as revealMask.
-    float distFromFront = front - CLEAR_PROGRESS;
+    float distFromFront = front - animatedWhiteProg;
     float fiberReach    = 0.045; // fixed short reach — keeps tendrils close to the content edge
     float dirFiber      = computeDirectionalFibers(uv + vec2(0.41, 0.83) * 0.1, warpRg);
     float coarseGrain   = samplePaper(uv * 1.8 + vec2(0.41, 0.83));
@@ -364,15 +372,12 @@ float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingCol
     float fiberZone     = fiberFade * step(0.0, distFromFront);
     float fibers        = fiberZone * fiberNoise * uFiberStrength * 0.85;
 
-    // Permanent tide-mark ring — uses its own more-warped front for extra wobble.
-    // Ring grows outward from the center: radius animates 0 → RING_PROGRESS over
-    // the same progress window as clearRingFade, so the ring expands as it fades in.
-    const float RING_PROGRESS = 0.12;
-    float clearRingFade = smoothstep(0.0, 0.65, uProgress);
-    float ringRadius    = RING_PROGRESS * clearRingFade;
+    // Tide-mark ring — tracks the animated clear zone boundary so it and the
+    // white fade always grow together. Uses a more-warped front for extra wobble.
     float ringFront     = distance(uv, origin) + uWarpInfluence * 1.0 * warpField + grainDisplace * 3.0;
-    float ring          = 1.0 - smoothstep(0.0, 0.0068, abs(ringFront - ringRadius));
-    clearRingColor = vec3(ring * uRingStrength * 0.5 * clearRingFade);
+    float ringRadius    = animatedClearProg;
+    float ring          = 1.0 - smoothstep(0.0, 0.010, abs(ringFront - ringRadius));
+    clearRingColor = vec3(ring * uRingStrength * 0.25 * clearRingFade);
 
     return max(coreMask, fibers);
 }
