@@ -1,0 +1,23 @@
+// Cursor dot styles. The dot is a fixed-positioned <div> owned entirely by
+// cursorDot.ts — not a React component. This SCSS file is imported by that
+// module via a standard Vite CSS module import.
+//
+// :global(body) { cursor: none } is injected programmatically in cursorDot.ts
+// (not here) so it can be cleanly removed on unmount without leaving a stale
+// stylesheet node.
+
+.dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffe033; // matches pollen trail color
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+  // Start invisible; cursorDot.ts sets opacity:1 on first mousemove.
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}

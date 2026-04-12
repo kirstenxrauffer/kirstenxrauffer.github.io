@@ -1,0 +1,30 @@
+// BEM block for the fairy canvas host.
+// Block: fairy-canvas
+// Elements: __host (the mounting div), __debug (reserved dev overlay)
+// Modifiers: none yet
+//
+// The canvas itself is fixed-positioned at z-index 0. App content sits
+// above via its own stacking context (see App.css). Negative z-indices
+// were rejected because an opaque ancestor background would occlude them.
+
+.fairy-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.95;
+
+  &__host {
+    width: 100%;
+    height: 100%;
+  }
+
+  &__debug {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    font: 12px/1 ui-monospace, monospace;
+    color: rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+  }
+}

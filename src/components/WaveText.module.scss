@@ -1,0 +1,40 @@
+.root {
+  // Preserve white-space so spaces render even between inline-block children.
+  white-space: pre-wrap;
+}
+
+.mask {
+  display: inline-block;
+  overflow: hidden;
+  // Extra headroom above the content area so the spring overshoot
+  // isn't clipped. The margin-top compensates so surrounding layout is
+  // unaffected. Value chosen to comfortably contain the ~20% overshoot
+  // produced by the spring cubic-bezier below.
+  padding-top: 0.3em;
+  margin-top: -0.3em;
+  vertical-align: bottom;
+}
+
+.letter {
+  display: inline-block;
+  will-change: transform, opacity;
+  animation: wave-up 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: var(--d, 0s);
+}
+
+// Space characters aren't wrapped in a .mask; they just need inline-block
+// so they don't collapse between inline-block siblings.
+.space {
+  display: inline-block;
+}
+
+@keyframes wave-up {
+  from {
+    transform: translateY(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

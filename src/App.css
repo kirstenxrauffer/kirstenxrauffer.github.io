@@ -1,0 +1,116 @@
+/*
+ * Stacking layout for .app:
+ *   ::before (z-index: -1)  themed page background
+ *   FairyCanvas (z-index: 0)  fixed, pointer-events: none
+ *   header/main (z-index:1) page content above the fairies
+ *
+ * `isolation: isolate` forces .app to create its own stacking context
+ * so the ::before at z-index: -1 can't slip behind <body>. Without this,
+ * a negative z-index on a pseudo-element leaks up the stacking tree.
+ */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  isolation: isolate;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.app--light {
+  color: #1a1a1a;
+}
+.app--light::before {
+  background: #f6f5f0;
+}
+
+.app--dark {
+  color: rgba(255, 255, 255, 0.87);
+}
+.app--dark::before {
+  background: #1a1a1a;
+}
+
+.app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.app__header {
+  display: none;
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 2rem;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.app__brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: inherit;
+}
+
+.app__nav {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.app__nav a {
+  color: inherit;
+  opacity: 0.8;
+}
+.app__nav a:hover {
+  opacity: 1;
+}
+
+.app__theme-toggle {
+  background: none;
+  border: 1px solid currentColor;
+  color: inherit;
+  border-radius: 999px;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.app__main {
+  flex: 1;
+  padding: 2rem;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+
+  section {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: black;
+    animation:
+      section-fade  0.8s ease-out           0.15s both,
+      section-scale 4s   cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+  }
+}
+
+@keyframes section-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes section-scale {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
