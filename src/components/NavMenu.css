@@ -87,6 +87,12 @@ a.nav-menu__btn:hover {
   text-decoration: none;
 }
 
+/* Second nav button ("about") — center its label */
+.nav-menu__item:nth-child(2) .nav-menu__btn {
+  justify-content: center;
+  text-align: center;
+}
+
 .nav-menu__btn:hover {
   background: color-mix(in srgb, var(--_tint) 28%, transparent);
   border-color: color-mix(in srgb, var(--_tint) 80%, transparent);
