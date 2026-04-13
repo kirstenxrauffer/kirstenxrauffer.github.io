@@ -48,6 +48,10 @@
 
   &[data-visible='true'] {
     opacity: 1;
+
+    &[data-near-content='true'] {
+      opacity: 0;
+    }
   }
 
   &__text {

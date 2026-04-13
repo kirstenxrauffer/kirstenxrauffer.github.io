@@ -28,7 +28,7 @@
 /* ── Nav container ─────────────────────────────────────────────────────── */
 .nav-menu {
   position: absolute;
-  top: calc(100% + 1rem);
+  top: calc(100% + 1rem + 8px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;
@@ -204,6 +204,22 @@ a.nav-menu__btn:hover {
 @keyframes nav-fade-in {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── Desktop: sub-menu opens to the left of the button ───────────────────── */
+@media (min-width: 641px) {
+  .nav-menu__sub,
+  .nav-menu__sub--right,
+  .nav-menu__sub--left,
+  .nav-menu__sub--bottom,
+  .nav-menu__sub--top {
+    top: 50%;
+    bottom: auto;
+    left: auto;
+    right: calc(100% + 0.4rem);
+    flex-direction: column;
+    transform: translateY(-50%);
+  }
 }
 
 /* ── Mobile: 3-column row pinned to bottom of viewport ───────────────────── */

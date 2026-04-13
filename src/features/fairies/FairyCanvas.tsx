@@ -104,10 +104,36 @@ export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
         // Update label position every frame by mutating the DOM directly —
         // avoids 60 fps React re-renders.
         onPositionChange: (x, y) => {
-          if (labelRef.current) {
-            labelRef.current.style.transform =
-              `translate(calc(${x}px - 50%), calc(${y - LABEL_OFFSET_Y}px - 100%))`;
-          }
+          const el = labelRef.current;
+          if (!el) return;
+          el.style.transform =
+            `translate(calc(${x}px - 50%), calc(${y - LABEL_OFFSET_Y}px - 100%))`;
+
+          // Hide label when it's near other page content.
+          const rect = el.getBoundingClientRect();
+          if (rect.width === 0) return; // not yet painted
+
+          // The fairy-canvas container wraps both the host and the label —
+          // use it as the exclusion root so we only flag external content.
+          const fairyRoot = hostRef.current?.parentElement ?? null;
+          const PAD = 20;
+          const pts: [number, number][] = [
+            [rect.left  - PAD, rect.top    - PAD],
+            [rect.right + PAD, rect.top    - PAD],
+            [rect.left  - PAD, rect.bottom + PAD],
+            [rect.right + PAD, rect.bottom + PAD],
+            [rect.left + rect.width / 2, rect.top - PAD],
+            [rect.left  - PAD, rect.top + rect.height / 2],
+            [rect.right + PAD, rect.top + rect.height / 2],
+          ];
+          const nearContent = pts.some(([px, py]) =>
+            document.elementsFromPoint(px, py).some(e =>
+              e !== document.documentElement &&
+              e !== document.body &&
+              !(fairyRoot ? fairyRoot.contains(e) || e === fairyRoot : false)
+            )
+          );
+          el.dataset.nearContent = nearContent ? 'true' : 'false';
         },
       }), hostRef.current);
     })();

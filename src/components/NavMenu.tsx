@@ -11,7 +11,6 @@ const WORK_ITEMS = [
   { label: 'linkedin',  color: '#0077B5' },
   { label: 'microsoft', color: '#00BCF2' },
   { label: 'roche',     color: '#0065BD' },
-  { label: 'tum',       color: '#3070B3' },
 ] as const;
 
 const SERVICES_ITEMS = [

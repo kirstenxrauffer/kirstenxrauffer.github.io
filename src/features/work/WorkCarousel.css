@@ -47,6 +47,10 @@
 
 /* ── Header row ─────────────────────────────────────────────────────────── */
 .wc-header {
+  visibility: hidden;
+  height: 0;
+  padding: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -115,6 +119,7 @@
   background: #2e1507;
   padding: 0;
   overflow: hidden;
+  rotate: -0.8deg;
   animation: wc-row-slide-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -128,8 +133,9 @@
 
 /* Gap between the two film strips */
 .wc-row--detail {
-  margin-top: 2px;
+  margin-top: -4px;
   animation-delay: 0.06s;
+  rotate: 1deg;
 }
 
 /* Both rows: overflow: visible so items can scale outside the film-strip bounds.

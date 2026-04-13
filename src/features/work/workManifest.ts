@@ -224,7 +224,6 @@ export const WORK_MANIFEST: CompanyWork[] = [
           '/work/roche/neptun/phone-mockup.webp',
           '/work/roche/neptun/coaching.webp',
           '/work/roche/neptun/diary.webp',
-          '/work/roche/neptun/devices.webp',
           '/work/roche/neptun/app-icon.png',
         ],
       },
