@@ -3,22 +3,24 @@
   white-space: pre-wrap;
 }
 
+// ── Wave variant (default) ────────────────────────────────────────────────────
+// Each letter slides up from below through an overflow-hidden mask, giving a
+// springy reveal. Opacity fades from 0→1 purely as a bonus softener.
+
 .mask {
   display: inline-block;
   overflow: hidden;
-  // Extra headroom above the content area so the spring overshoot
-  // isn't clipped. The margin-top compensates so surrounding layout is
-  // unaffected. Value chosen to comfortably contain the ~20% overshoot
-  // produced by the spring cubic-bezier below.
-  padding-top: 0.3em;
-  margin-top: -0.3em;
+  // Extra headroom above for the explicit overshoot keyframe.
+  // margin-top compensates so surrounding layout is unaffected.
+  padding-top: 0.5em;
+  margin-top: -0.5em;
   vertical-align: bottom;
 }
 
 .letter {
   display: inline-block;
-  will-change: transform, opacity;
-  animation: wave-up 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  will-change: transform, opacity, filter;
+  animation: wave-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: var(--d, 0s);
 }
 
@@ -29,12 +31,49 @@
 }
 
 @keyframes wave-up {
+  0%   { transform: translateY(115%); opacity: 0; filter: blur(6px); }
+  55%  { transform: translateY(-20%); opacity: 1; filter: blur(1px); }
+  75%  { transform: translateY(7%);                filter: blur(0); }
+  100% { transform: translateY(0);                 filter: blur(0); }
+}
+
+// ── Scatter variant ───────────────────────────────────────────────────────────
+// Each letter fades in at a random offset. No mask or transform — pure opacity.
+// Used for the name h1.
+
+.scatter-letter {
+  display: inline-block;
+  will-change: opacity;
+  animation: fade-in 1.8s ease-out both;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// ── Drift variant ─────────────────────────────────────────────────────────────
+// Letters float up gently from a small offset while a blur clears and opacity
+// rises. No spring overshoot — purely dreamy. Good for body copy that should
+// feel weightless rather than snappy.
+
+.drift-letter {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+  animation: drift-up 1.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes drift-up {
   from {
-    transform: translateY(110%);
+    transform: translateY(0.35em);
     opacity: 0;
+    filter: blur(5px);
   }
   to {
     transform: translateY(0);
     opacity: 1;
+    filter: blur(0);
   }
 }

@@ -1,0 +1,106 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 28rem;
+  animation: drift-up 0.8s ease-out both;
+  animation-delay: var(--d, 0s);
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input,
+.textarea {
+  font-family: 'General Sans', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  color: white;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  &:focus {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+  line-height: 1.55;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  /* Periwinkle blue — same hue as site links (#9bb7ff) but darkened for
+     4.5:1+ contrast with white text (WCAG AA). Measured at 5.77:1. */
+  background: #3a5bd0;
+  border: 1px solid rgba(155, 183, 255, 0.35);
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  color: #fff;
+  font-family: 'General Sans', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #2e4db5;
+    border-color: rgba(155, 183, 255, 0.55);
+    box-shadow: 0 0 18px rgba(58, 91, 208, 0.45);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.success {
+  animation: drift-up 0.8s ease-out both;
+  animation-delay: var(--d, 0s);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.875rem;
+}
+
+.errorMsg {
+  font-size: 0.8rem;
+  color: rgba(255, 110, 110, 0.85);
+  margin: 0;
+}
+
+@keyframes drift-up {
+  from {
+    transform: translateY(0.15em);
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}

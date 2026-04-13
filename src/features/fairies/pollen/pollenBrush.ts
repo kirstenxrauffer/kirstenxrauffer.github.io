@@ -28,7 +28,7 @@ export const POLLEN_BRUSH_PARAMS = {
   scatter: 15,  // was 25 — tighter spread
   grain: 4,     // fewer dots per burst — sparser, more delicate
   sharpness: 15,
-  opacity: 200, // max opacity; pollenTrail.ts scales this per-stamp for fading
+  opacity: 100, // max opacity; pollenTrail.ts scales this per-stamp for fading
   spacing: 1,
   noise: 0.3,
   pressure: { curve: [0.2, 0.35] as [number, number], min_max: [0.85, 1] as [number, number] },

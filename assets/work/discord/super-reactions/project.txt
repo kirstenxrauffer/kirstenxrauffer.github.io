@@ -1,0 +1,14 @@
+Nitro feature that fires an animated burst effect when reacting to a message, visible to everyone in the chat. Transforms a standard reaction into a full-screen expressive moment, across both desktop and mobile.
+
+Animations were built with Lottie. To make every super reaction feel personal to the emoji that triggered it, we extracted the top colors from each emoji and piped them directly into the animation, so every reaction feels tailor-made rather than templated.
+
+skills: React · TypeScript · Animation · Emoji · Lottie · DataDog · Figma · Accessibility
+
+media:
+- https://www.youtube.com/embed/IIRLMV9SZds [official demo video]
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/642c93aa534c2922f17a99e7_2023_BurstReactions_Static_BlogHDR_005.png [blog header]
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/6413747f54f9d602dfc6993f_xcw0-lVmbsB0E9K0ekNuY7N5mbywQWOp9nfcOitqbmWcLodZboQ9crJ7Hzc0TlpN1AZx60fZJTqiTDf3N1hKiK035ertcTQvQfRLmIIjSJneJo4jpZVhVfiLKnV_w8wTA5ddBBi0REK8tz-3LNBDirU.gif [reactions in use, normal vs super burst]
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/654412d2d6f74dbeb457e101_9cZ6oBt1Tg5LBM5OYHjGcKdvHNatJZCWmIZbrXx-GHAX6GwIm-LmJkIBUUjJn9H-vK1OIaQiYsWWMgaQp4etPk_645FxESthxmLtAz4e1N3NpQJ_mABxG9tl5QhRfO5ft-xO7NK7isVNBT367WMr3vk.gif [demo: enabling + sending a super reaction]
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/6413747e7afe9132577ceae0_SWIIc75HGdiA7GY_uRabXLCFm9hG43YL00eJ_r3-ZnY-XA66SdRLzu2ZuL4GkAFfaLtlkba3s73f-bgW7nDbUw1lPokN5lYs0C6FBPhjA0vhF5ifn1iFl7SXT0pZIUmC4xPU7bAeGfvcrmUeTPuVdUU.png [standard reaction comparison]
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/654412d22b38e8e74ae7c07d_kADZ81ibrAEkmpGVWsfH1TQAG3YFp_rRHJ08VPoU_QDt3EBdzGwHf9FIsMrWXG0y4upkibJqspwpsOERrmjsOvDofMSHm0wzAkTHjqwxi5LAXwjnwXPMJva446DCa4hvr_JtkEpIFM2SuyB5qECyzyc.png [UI: select super reaction toggle]
+- source: https://discord.com/blog/super-reactions-make-emoji-burst-to-life-discord-nitro

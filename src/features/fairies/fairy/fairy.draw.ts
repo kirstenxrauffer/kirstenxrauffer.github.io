@@ -31,7 +31,7 @@ function makeLCG(seed: number): () => number {
 }
 
 const GLOW_LAYERS = 35;
-const GLOW_MAX_R  = BODY.r * 7.425; // outermost halo radius — former hover size (4.95 × 1.5) baked in as default
+const GLOW_MAX_R  = BODY.r * 4.95;  // outermost halo radius
 const HUE_CENTER  = 270;           // degrees — lavender base
 const HUE_SWING   = 50;            // ±° around base; blue-violet → rose-pink
 const HUE_PERIOD  = 25000;         // ms per full cycle
@@ -39,7 +39,7 @@ const BODY_SAT_SCALE = 0.50;       // 0 = fully grey, 1 = full colour; raised fr
 
 // Hover overrides — soft light-source effect: noticeably brighter, gentle halo, slow breath.
 const HOVER_HUE_PERIOD   = 12000; // ms — ~2× faster hue cycle (subtle, not jarring)
-const HOVER_INTENSITY    = 1.9;   // ~90% brighter at full hover
+const HOVER_INTENSITY    = 1.5;   // ~50% brighter at full hover
 const HOVER_PULSE_AMP    = 0.08;  // ±8% gentle breathing
 const HOVER_PULSE_PERIOD = 2500;  // ms — slow 2.5 s breath cycle
 const HOVER_GLOW_MULT    = 1.0;   // no additional expansion — hover size is already the baseline
@@ -92,7 +92,7 @@ export function drawFairy(p: p5, fairy: Fairy, now: number, hoverT: number): voi
     const hoverScale = 1.0 + (fullHoverScale - 1.0) * hoverT;
     // Hardened: was t^2.5 * 80 — shallower curve + higher cap makes the core
     // more opaque and gives the orb more visible substance.
-    const alpha = Math.pow(t, 2.0) * 65 * hoverScale;
+    const alpha = Math.pow(t, 2.0) * 44 * hoverScale;
 
     // At full hover: whiter center (reduced sat) and brighter lightness — "colored light" effect.
     const sat = (100 - t * 35) / 100 * (1 - HOVER_DESAT * hoverT) * BODY_SAT_SCALE;

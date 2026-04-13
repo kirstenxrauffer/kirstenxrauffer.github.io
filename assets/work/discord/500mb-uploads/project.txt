@@ -1,0 +1,7 @@
+My first project at Discord. Nitro subscribers were capped at 100MB uploads. I migrated file storage from Discord's own infrastructure to Google Cloud Storage to push that ceiling to 500MB. Free users stay at 10MB; Nitro subscribers now get 50x that, enabling large video recordings, high-res assets, and game captures shared directly in chat.
+
+skills: React · TypeScript · Upload UX · Google Cloud Storage · Cloud Infrastructure · Cloud Migration · DataDog · Figma · Accessibility
+
+media:
+- https://cdn.prod.website-files.com/6257adef93867e50d84d30e2%2F688a7b819d2568123496ccd9_Nitro_Roadblocks_HDstreaming_idle_WEB_H265-transcode.mp4 [nitro page loop: "LIVE LIFE WITHOUT LIMITS"]
+- https://www.ghacks.net/wp-content/uploads/2023/04/dc-2.jpg [press screenshot: upload limit UI]

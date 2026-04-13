@@ -1,0 +1,27 @@
+Desktop-side implementation of Discord's custom app icon Nitro perk, accessible via User Settings → Appearance → App Icon. Changes the icon displayed within the app on Windows and macOS; expands with seasonal drops like Halloween.
+
+origin: Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, user experience, and marketing; adapted the mobile icon assets for desktop without support from the core art team; developed it in a single sprint; and launched it.
+
+skills: React · TypeScript · Desktop · Product Design · Asset Production · Marketing · Leadership · DataDog · Figma · Accessibility
+
+proud of:
+- Took the feature from pitch to shipped with no PM or designer. Covered product, design, and engineering myself.
+- Adapted all mobile icon assets for desktop independently, without pulling in the core art team
+- Fought internally for users to keep their chosen icon even after Nitro expires. Confirmed working in the wild: reddit.com/r/discordapp/comments/1kmcpdk/
+- Seasonal icon drops tied to Discord moments (Halloween, etc.) turned the feature into a recurring content touchpoint: instagram.com/p/Cx8emyEKuXD/
+
+settings path (desktop): User Settings → Appearance → App Icon
+
+media:
+- icon-options-preview.jpg [DiscordPreviews early icon grid, ~20 options, Sep 14 2023]
+- new-icon-packs-preview.png [official blog preview of 4 new icon packs, Jun 2024]
+- blurple-twilight-desktop.png [Blurple Twilight icon + theme on desktop client, Jun 2024]
+- halloween-seasonal-drop.jpg [Halloween seasonal icon drop, Discord Instagram]
+- icon-persists-after-nitro.jpeg [Reddit: user's icon stays after Nitro trial expires]
+
+sources:
+- https://support.discord.com/hc/en-us/articles/17503907209239-Custom-App-Icon [official support article]
+- https://x.com/DiscordPreviews/status/1702362728428409206 [pre-launch icon grid preview]
+- https://discord.com/blog/how-to-share-the-latest-nitro-perks-with-your-friends [June 2024 new icon packs blog]
+- https://www.instagram.com/p/Cx8emyEKuXD/ [Halloween seasonal drop]
+- https://www.reddit.com/r/discordapp/comments/1kmcpdk/ [icon persists after Nitro expires]

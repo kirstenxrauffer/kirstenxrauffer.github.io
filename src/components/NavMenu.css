@@ -7,29 +7,38 @@
 .nav-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9;
+  z-index: 2;
   background: rgba(0, 0, 0, 0);
   pointer-events: none;
   transition: background 0.35s ease;
 }
 
+@media (hover: hover) {
+  .nav-overlay--dim {
+    background: rgba(0, 0, 0, 0.55);
+  }
+}
+
 .nav-overlay--visible {
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.78);
   pointer-events: auto;
   cursor: default;
 }
 
 /* ── Nav container ─────────────────────────────────────────────────────── */
 .nav-menu {
-  position: fixed;
-  left: 1.5rem;
-  top: calc(50% - 75px);
-  transform: translateY(-50%);
-  z-index: 10;
+  position: absolute;
+  top: calc(100% + 1rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.5rem;
   pointer-events: auto;
+  white-space: nowrap;
 }
 
 /* ── Item wrapper — relative so sub-menu can be positioned off it ──────── */
@@ -41,18 +50,24 @@
 
 /* ── Top-level button ──────────────────────────────────────────────────── */
 .nav-menu__btn {
+  /* --_tint blends the sampled image colour with white so the tint is always
+     pastel/muted — never saturated. Falls back to pure white when no palette
+     colour is available, giving the original frosted-glass appearance. */
+  --_tint: color-mix(in srgb, var(--nav-color, white) 35%, white);
+
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.42);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 8px;
   padding: 0.55rem 1rem;
   color: white;
   font-family: inherit;
   font-size: 0.85rem;
+  font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
   text-align: left;
@@ -61,22 +76,47 @@
 
   opacity: 0;
   transform: translateY(16px);
-  animation: nav-fade-in 0.6s ease forwards;
-  animation-delay: calc(var(--i) * 150ms);
+  animation: nav-fade-in 0.5s ease forwards;
+  animation-delay: calc(var(--i) * 80ms);
 
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
 .nav-menu__btn:hover,
+a.nav-menu__btn:hover {
+  text-decoration: none;
+}
+
+.nav-menu__btn:hover {
+  background: color-mix(in srgb, var(--_tint) 28%, transparent);
+  border-color: color-mix(in srgb, var(--_tint) 80%, transparent);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--_tint) 40%, transparent),
+    0 0 25px color-mix(in srgb, var(--_tint) 20%, transparent);
+}
+
+/* When the overlay is visible (nav open or sub-menu open), all non-active
+   buttons get the same lit-up tint as :hover so they pop against the dim. */
+.nav-menu--open .nav-menu__btn:not(.nav-menu__btn--active) {
+  background: color-mix(in srgb, var(--_tint) 28%, transparent);
+  border-color: color-mix(in srgb, var(--_tint) 80%, transparent);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--_tint) 40%, transparent),
+    0 0 25px color-mix(in srgb, var(--_tint) 20%, transparent);
+}
+
 .nav-menu__btn--active {
-  border-color: rgba(255, 255, 255, 0.45);
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2), 0 0 25px rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--_tint) 45%, transparent);
+  border-color: color-mix(in srgb, var(--_tint) 100%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--_tint) 60%, transparent),
+    0 0 14px color-mix(in srgb, var(--_tint) 70%, transparent),
+    0 0 35px color-mix(in srgb, var(--_tint) 35%, transparent);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--_tint) 90%, white);
 }
 
 /* ── Expand arrow ───────────────────────────────────────────────────────── */
 .nav-menu__arrow {
-  margin-left: auto;
   font-size: 0.65rem;
   opacity: 0.6;
   transition: transform 0.25s ease;
@@ -85,50 +125,23 @@
 }
 
 .nav-menu__arrow--open {
-  transform: rotate(90deg);
+  transform: none;
 }
 
-/* ── Sub-menu — absolutely positioned, floats to chosen side ───────────── */
-.nav-menu__sub {
+/* ── Sub-menu — absolutely positioned, always opens below the button ────── */
+.nav-menu__sub,
+.nav-menu__sub--right,
+.nav-menu__sub--left,
+.nav-menu__sub--bottom,
+.nav-menu__sub--top {
   position: absolute;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  /* default: right side */
-  left: calc(100% + 0.5rem);
-  top: 0;
-}
-
-.nav-menu__sub--right {
-  left: calc(100% + 0.5rem);
-  right: auto;
-  top: 0;
-  bottom: auto;
-  flex-direction: column;
-}
-
-.nav-menu__sub--left {
-  right: calc(100% + 0.5rem);
-  left: auto;
-  top: 0;
-  bottom: auto;
-  flex-direction: column;
-}
-
-.nav-menu__sub--bottom {
   top: calc(100% + 0.35rem);
   bottom: auto;
   left: 0;
   right: auto;
-  flex-direction: column;
-}
-
-.nav-menu__sub--top {
-  bottom: calc(100% + 0.35rem);
-  top: auto;
-  left: 0;
-  right: auto;
-  flex-direction: column-reverse; /* so stagger reads top-to-bottom visually */
 }
 
 /* ── Sub-item button ───────────────────────────────────────────────────── */
@@ -193,28 +206,33 @@
   to   { opacity: 1; transform: translateY(0);    }
 }
 
-/* ── Mobile: move nav to bottom-center ─────────────────────────────────── */
+/* ── Mobile: 3-column row pinned to bottom of viewport ───────────────────── */
 @media (max-width: 640px) {
   .nav-menu {
-    left: 50%;
+    position: fixed;
     top: auto;
-    bottom: 1.5rem;
-    transform: translateX(-50%);
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
+    bottom: 1.25rem;
+    left: 1rem;
+    right: 1rem;
+    transform: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    white-space: normal;
   }
 
-  /* On mobile the item is relatively laid out in a row, so sub-menu
-     can't use absolute positioning off the item the same way.
-     Default to bottom. */
+  .nav-menu__btn {
+    justify-content: center;
+    font-size: 0.78rem;
+    padding: 0.55rem 0.5rem;
+  }
+
   .nav-menu__sub,
   .nav-menu__sub--right,
-  .nav-menu__sub--left {
-    left: 0;
-    right: auto;
-    top: calc(100% + 0.35rem);
-    bottom: auto;
-    flex-direction: column;
+  .nav-menu__sub--left,
+  .nav-menu__sub--bottom,
+  .nav-menu__sub--top {
+    top: auto;
+    bottom: calc(100% + 0.35rem);
+    flex-direction: column-reverse;
   }
 }

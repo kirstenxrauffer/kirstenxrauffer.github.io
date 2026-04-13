@@ -7,4 +7,6 @@ export interface WatercolorCanvasProps {
   image?: string;
   /** Called once, the moment the GSAP reveal tween fires (after image load). */
   onRevealStart?: () => void;
+  /** Called with extracted palette colours (CSS rgb() strings) after image load. */
+  onPalette?: (palette: string[]) => void;
 }

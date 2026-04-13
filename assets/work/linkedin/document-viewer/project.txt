@@ -1,0 +1,23 @@
+Inline document viewer for the LinkedIn feed. Upload a PDF, PPT, or Word file and followers swipe through pages without leaving LinkedIn. Co-authored the LinkedIn Engineering blog post detailing the architecture. Drives 3x more clicks than any other post type.
+
+skills: React · TypeScript · Vanilla JS · Accessibility · PDF.js · Figma
+
+engineering notes (from co-authored blog post):
+- Built framework-agnostic in vanilla JS (not Ember-dependent) for reuse across LinkedIn products
+- Documents processed via Vector (LinkedIn's media platform) → Microsoft Binary Conversion → per-page image rendering at multiple resolutions
+- Text overlay via CSS-positioned transparent layer using PDF.js for selectability, search, and screen reader support
+- Real-time page progress tracked via Espresso-based databases; green tick marks show viewed pages
+- ~50 people across 15 teams, 6+ months of development
+
+accessibility notes:
+- Led accessibility for the centralized document viewer, which was the shared component adopted across LinkedIn surfaces including Feed, Learning, Recruiter, and others
+- Adapted Mozilla's open source PDF.js to interpret tagged PDFs. Parsed the logical tag tree (headings, paragraphs, lists, figures) and rendered them as semantic HTML elements in the scrollable document viewer rather than as a flat image dump
+- This enabled screen readers to navigate documents structurally, not just read a wall of text or skip content entirely
+- Drove adoption of the accessible viewer with teams I had no prior working relationship with, making the case for the centralized approach and getting buy-in across org boundaries
+
+media:
+- blog-header.jpg [LinkedIn Engineering blog og:image]
+
+sources:
+- https://www.linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents [co-authored LinkedIn Engineering blog post, April 24 2019]
+- https://www.linkedin.com/blog/member/product/spark-deeper-conversations-with-document-and-presentation-upload [product launch blog]

@@ -1,0 +1,21 @@
+Skills-based hiring pipeline on LinkedIn that pairs curated Learning courses with Skill Assessments. Candidates who pass are guaranteed a recruiter interview, removing degree/credential gatekeeping. Piloted with Gap Inc., BlackRock, Citrix, Gusto, and others in 2021.
+
+Served as team lead for Skills Path while simultaneously leading UI for the Skill Assessments team. The two initiatives were deeply intertwined, and I coordinated across both to keep the product experience coherent.
+
+skills: React · TypeScript · Hiring UX · Assessments · Personalization · Team Lead · UI Lead · Cross-functional Leadership · Leadership · Figma · Accessibility
+
+gap inc. quote:
+"Participating in LinkedIn's Skills Path pilot will help us connect with candidates faster based on core skills and potential rather than traditional experience or credentials, which creates access to an even more diverse talent pool." - Meghan Kelly, Global Head of Talent Acquisition, Gap Inc.
+
+media:
+- blog-header.jpg [LinkedIn blog og:image]
+- blog-inline.jpg [LinkedIn blog inline image]
+- gap-inc-hero.jpg [Gap Inc. press release hero image]
+- shrm-header.jpeg [SHRM article header image]
+- Skills-Path-SG-Pilot.pdf [official pilot program guide, LinkedIn]
+
+sources:
+- https://www.linkedin.com/business/talent/blog/product-tips/introducing-skills-path [LinkedIn product launch blog]
+- https://www.gapinc.com/es-us/articles/2021/03/leveraging-linkedin-s-skills-path-to-remove-barrie [Gap Inc. press release]
+- https://www.shrm.org/topics-tools/news/talent-acquisition/linkedin-launches-skills-based-approach-to-hiring [SHRM pilot program coverage]
+- https://business.linkedin.com/content/dam/me/business/en-us/talent-solutions/learning-center/sp-resources/Skills-Path-SG-Pilot.pdf [pilot guide PDF]

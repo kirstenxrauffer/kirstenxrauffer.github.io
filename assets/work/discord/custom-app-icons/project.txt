@@ -1,0 +1,24 @@
+Nitro feature letting subscribers swap the Discord home screen icon from a curated library of designs, including seasonal drops like Halloween. Launched September 2023 with ~20 icons; expanded with Color Wave, Midnight Prism, In Rainbows, and Blurple Twilight in June 2024.
+
+skills: React Native · TypeScript · Mobile · iOS · Android · Swift · Objective-C · Kotlin · DataDog · Figma · Accessibility
+
+proud of:
+- Advocated internally for users to keep their chosen icon even after Nitro expires. Confirmed working in the wild: reddit.com/r/discordapp/comments/1kmcpdk/
+- Seasonal icon drops tied to Discord moments (Halloween, etc.) turned the feature into a recurring content touchpoint: instagram.com/p/Cx8emyEKuXD/
+- Easter egg: the Pirate icon randomizes its display name every time you tap it. Each tap cycles through a new nickname (e.g. "Ahoy!", "Yarr!", "Sea Dog"). Drives organic community discovery and repeat engagement; users on r/discordapp have been cataloguing every variant. reddit.com/r/discordapp/comments/16pwevc/
+- Easter egg (undiscovered): there is a hidden interaction on the Custom App Icon settings page on mobile that no one has found yet.
+
+settings path (mobile): Avatar → User Settings → App Settings → App Icon
+
+media:
+- icon-options-preview.jpg [DiscordPreviews early icon grid, ~20 options, Sep 14 2023]
+- new-icon-packs-preview.png [official blog preview of 4 new icon packs, Jun 2024]
+- halloween-seasonal-drop.jpg [Halloween seasonal icon drop, Discord Instagram]
+- icon-persists-after-nitro.jpeg [Reddit: user's icon stays after Nitro trial expires]
+
+sources:
+- https://support.discord.com/hc/en-us/articles/17503907209239-Custom-App-Icon [official support article]
+- https://x.com/DiscordPreviews/status/1702362728428409206 [pre-launch icon grid preview]
+- https://discord.com/blog/how-to-share-the-latest-nitro-perks-with-your-friends [June 2024 new icon packs blog]
+- https://www.instagram.com/p/Cx8emyEKuXD/ [Halloween seasonal drop]
+- https://www.reddit.com/r/discordapp/comments/1kmcpdk/ [icon persists after Nitro expires]

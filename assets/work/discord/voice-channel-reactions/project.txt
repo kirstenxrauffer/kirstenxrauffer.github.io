@@ -1,0 +1,16 @@
+Real-time emoji reactions for voice and video calls. Tap an emoji and it animates across the call interface without unmuting. Nitro subscribers get animated cross-server emoji and full-screen scroll effects.
+
+Animations were built with Lottie, with the top colors extracted from each emoji and injected into the animation at runtime, so every reaction burst is uniquely tinted by the emoji that triggered it, giving each moment its own visual signature rather than a one-size-fits-all effect.
+
+Led the mobile implementation and was a primary developer on the desktop version.
+
+skills: React Native · React · TypeScript · Animation · Lottie · Mobile · Swift · Objective-C · Kotlin · Leadership · DataDog · Figma · Accessibility
+
+media:
+- hero.png [Discord Community Updates hero, voice reactions launch]
+- desktop-emoji-icon.png [annotated screenshot: smiley icon in voice channel controls]
+- desktop-click-emoji.png [annotated screenshot: emoji picker menu with search]
+
+sources:
+- https://www.adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/ [Adweek annotated walkthrough]
+- https://support.discord.com/hc/en-us/articles/12102061808663-Reactions-and-Super-Reactions-FAQ [Discord support FAQ]

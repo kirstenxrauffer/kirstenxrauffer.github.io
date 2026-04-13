@@ -1,0 +1,11 @@
+Developed the new 2.0 card components used across the site (homepage and beyond) for mobile and desktop web. Worked closely with accessibility, design, PM, and engineering partners across both product teams and the horizontal design system team. Also delivered the 2.0 bubble navigation.
+
+The homepage experience is powered by the "Quazi" AI engine, surfacing real-time product recommendations and replenishment reminders for 44M+ Ultamate Rewards members.
+
+skills: React · TypeScript · Personalization · A/B Testing · Ecommerce · Mobile · Design Systems · Accessibility · Figma
+
+media:
+- https://www.abtasty.com/wp-content/uploads/2024/09/Ulta-case-study-before-image.png [A/B test before state]
+- https://www.abtasty.com/wp-content/uploads/2024/09/Ulta-case-study-after-image.png [A/B test after state: cart overlay with recs, +9% revenue]
+- source: https://www.abtasty.com/resources/ulta-beautys-palette-for-innovation-starts-with-experimentation/
+- source: https://www.ulta.com/innovation/experiences.html

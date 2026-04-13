@@ -1,0 +1,618 @@
+/* ── WorkCarousel ─────────────────────────────────────────────────────────────
+ * Fixed panel pinned to the top of the viewport.
+ * .app has isolation:isolate (stacking context); WorkCarousel is rendered as a
+ * direct child of .app (NOT inside .app__main) so that wc-container's z-index
+ * is evaluated in .app's stacking context.
+ * z-index 20 → above FairyCanvas (13) and app__main (12) within .app.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Outer container (fixed, spans viewport width) ─────────────────────── */
+.wc-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* ── Glass panel ────────────────────────────────────────────────────────── */
+.wc-panel {
+  pointer-events: auto;
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+
+  animation: wc-panel-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes wc-panel-in {
+  from { transform: translateX(-100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes wc-panel-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+.wc-panel--exiting {
+  animation: wc-panel-out 0.38s cubic-bezier(0.37, 0, 0.63, 1) both;
+  pointer-events: none;
+}
+
+/* Exiting panel is a fresh mount — suppress the row slide-in so rows don't
+   fight the panel's rightward sweep with their own leftward enter animation. */
+.wc-panel--exiting .wc-row {
+  animation: none;
+}
+
+/* ── Header row ─────────────────────────────────────────────────────────── */
+.wc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 1.25rem 0.4rem;
+}
+
+.wc-header__label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  background: color-mix(in srgb, #c8783a 22%, transparent);
+  border: 1px solid color-mix(in srgb, #c8783a 50%, transparent);
+  color: rgba(230, 175, 100, 0.92);
+}
+
+.wc-header__close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wc-header__close:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Empty state ────────────────────────────────────────────────────────── */
+.wc-empty {
+  padding: 1.5rem 1.25rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: lowercase;
+  font-style: italic;
+  /* still needs film strip framing */
+  background: #2e1507;
+  border-top: 1px solid #150901;
+  border-bottom: 1px solid #150901;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILM STRIP — .wc-row
+   ═══════════════════════════════════════════════════════════════════════════
+   Structure (top-to-bottom):
+     ::before  — top perforation strip
+     .wc-row__track  — scrollable frames
+     ::after   — bottom perforation strip
+
+   Perforations use a 24×20px repeating SVG tile:
+     amber film base + near-black rounded-rect hole centered in the tile.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* ── Film base ──────────────────────────────────────────────────────────── */
+.wc-row {
+  background: #2e1507;
+  padding: 0;
+  overflow: hidden;
+  animation: wc-row-slide-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes wc-row-slide-in {
+  from { transform: translateX(-100%); }
+  to   { transform: none; }
+  /* `none` interpolates identically to translateX(0) but leaves no
+     persistent transform after the animation, so no stacking context
+     lingers on .wc-row that could swallow overflow: visible. */
+}
+
+/* Gap between the two film strips */
+.wc-row--detail {
+  margin-top: 2px;
+  animation-delay: 0.06s;
+}
+
+/* Both rows: overflow: visible so items can scale outside the film-strip bounds.
+   Works cleanly now that the slide-in animation ends with transform: none
+   (no lingering stacking context to swallow overflow). */
+.wc-row--top,
+.wc-row--detail {
+  overflow: visible;
+}
+
+@keyframes wc-detail-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Perforation strips (top & bottom) ─────────────────────────────────── */
+/*
+   SVG tile (24×20):
+     background: #3e1f09  (amber perforation strip, slightly lighter than film base)
+     hole rect: x=6 y=4 w=12 h=12 rx=2.5, fill=#0d0703  (near-black)
+*/
+.wc-row::before,
+.wc-row::after {
+  content: '';
+  display: block;
+  height: 20px;
+  /* Amber strip with repeating near-black rounded-rect holes */
+  background-color: #3e1f09;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='20'%3E%3Crect width='24' height='20' fill='%233e1f09'/%3E%3Crect x='6' y='4' width='12' height='12' rx='2.5' fill='%230d0703'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 24px 20px;
+  /* Inner shadow to separate perforation strip from frame area */
+  box-shadow:
+    inset 0 -2px 5px rgba(0, 0, 0, 0.55),
+    inset 0  2px 5px rgba(0, 0, 0, 0.55);
+}
+
+/* Extra shadow direction per strip */
+.wc-row::before {
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.6);
+}
+.wc-row::after {
+  box-shadow: inset 0  3px 6px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Scrollable frame track ─────────────────────────────────────────────── */
+.wc-row__track {
+  display: flex;
+  flex-direction: row;
+  align-items: center;        /* vertically center items so scale has equal room above & below */
+  gap: 6px;                   /* thin dark strip between frames */
+  overflow-x: auto;
+  /* overflow-y: visible can't coexist with overflow-x: auto (spec forces it to
+     auto). The workaround: padding-block extends the scrollport's padding box,
+     and ink overflow (scale transforms) is clipped at the padding edge — not
+     the content edge. This gives items headroom to scale without a fixed
+     min-height, so you can freely increase the scale values above. */
+  padding: 12px 6px;
+  isolation: isolate;         /* scopes z-index on hovered items to the track */
+  background: #1e0d04;        /* slightly darker between strip and frames */
+
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.wc-row__track::-webkit-scrollbar { display: none; }
+
+/* ── Film frame (thumbnail button) ─────────────────────────────────────── */
+.wc-thumb {
+  flex-shrink: 0;
+  background: #120804;
+  border: 1.5px solid #1c0e05;
+  border-radius: 12px;
+  padding: 0;
+  cursor: default;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+
+  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
+}
+
+.wc-thumb--clickable {
+  cursor: pointer;
+}
+
+/* Warm amber glow on hover (detail row / generic) */
+.wc-thumb--clickable:hover {
+  border-color: transparent;
+  border-radius: 4px;
+  box-shadow:
+    0 0 14px rgba(210, 100, 15, 0.55),
+    0 0 38px rgba(190, 75, 8, 0.32),
+    0 0 75px rgba(160, 50, 0, 0.18),
+    0 6px 20px rgba(0, 0, 0, 0.55);
+  transform: translateY(-9px) scale(1.28);
+  z-index: 10;
+}
+
+.wc-thumb--clickable:hover .wc-thumb__media,
+.wc-thumb--clickable:hover .wc-thumb__label {
+  border-radius: 0;
+}
+
+/* Top carousel: grow + glow on hover — preview overlays it */
+.wc-row--top .wc-thumb--clickable:hover {
+  border-color: transparent;
+  border-radius: 4px;
+  box-shadow: none;
+  transform: translateY(-10px) scale(1.32);
+  z-index: 10;
+}
+
+/* Selected frame: glow only, no border */
+.wc-thumb--active {
+  border-color: transparent;
+  box-shadow:
+    0 0 12px rgba(200, 100, 15, 0.5),
+    0 0 32px rgba(180, 70, 5, 0.25);
+}
+
+/* Top row active item: no glow — the open detail row is the indicator */
+.wc-row--top .wc-thumb--active {
+  box-shadow: none;
+  border-color: #1c0e05;
+}
+
+
+/* Decorative filler cell — completely inert */
+.wc-thumb--filler {
+  pointer-events: none;
+  /* Kill all inherited hover/glow rules */
+  box-shadow: none !important;
+  border-color: #1c0e05 !important;
+  transform: none !important;
+  cursor: default;
+  /* Slightly dimmer than interactive frames to read as unexposed film */
+  opacity: 0.55;
+}
+
+/* Filler media area: same fixed size as a regular thumb */
+.wc-thumb--filler .wc-thumb__media {
+  background: #0e0602;
+  border-radius: 10px;
+}
+
+
+/* ── Film frame media area ──────────────────────────────────────────────── */
+.wc-thumb__media {
+  position: relative;
+  width: 220px;
+  height: 130px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+.wc-thumb--labeled .wc-thumb__media {
+  width: 220px;
+  height: 120px;
+  border-radius: 10px 10px 0 0;  /* label row sits below, so only top corners rounded */
+}
+
+.wc-thumb__media img,
+.wc-thumb__media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* Heavy film darkening: deep sepia, low brightness, desaturated */
+  filter: sepia(0.45) contrast(1.12) brightness(0.58) saturate(0.75);
+  transition: filter 0.22s;
+}
+
+/* Reveal true colors on hover/active/first-lit — go above neutral to pop */
+.wc-thumb--clickable:hover .wc-thumb__media img,
+.wc-thumb--clickable:hover .wc-thumb__media video,
+.wc-thumb--active .wc-thumb__media img,
+.wc-thumb--active .wc-thumb__media video,
+.wc-thumb--first-lit .wc-thumb__media img,
+.wc-thumb--first-lit .wc-thumb__media video {
+  filter: sepia(0) contrast(1.06) brightness(1.08) saturate(1.22);
+}
+
+/* Vignette overlay on each frame — mimics film light falloff */
+.wc-thumb__media::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.15) 35%, rgba(0, 0, 0, 0.72) 100%);
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.22s;
+}
+
+.wc-thumb--active .wc-thumb__media::before,
+.wc-thumb--clickable:hover .wc-thumb__media::before,
+.wc-thumb--first-lit .wc-thumb__media::before {
+  opacity: 0.15;
+}
+
+/* ── Project label (film-strip caption style) ───────────────────────────── */
+.wc-thumb__label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transform: translateY(100%);
+  padding: 0.3rem 0.5rem 0.35rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: rgba(220, 160, 80, 1);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #120804;
+  border-top: 1px solid #1c0e05;
+  border-radius: 0 0 10px 10px;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.wc-thumb--active .wc-thumb__label,
+.wc-thumb--clickable:hover .wc-thumb__label,
+.wc-thumb--first-lit .wc-thumb__label {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Mobile tweaks ──────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .wc-thumb__media,
+  .wc-thumb--labeled .wc-thumb__media {
+    width: 160px;
+    height: 110px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   IN-PLACE HOVER PREVIEW  (.wc-hover-preview)
+   ─────────────────────────────────────────────────────────────────────────
+   Rendered position:fixed at the exact location of the hovered thumbnail
+   (CSS vars --px/--py/--pw/--ph from getBoundingClientRect).
+   Two-state transition:
+     default  → scale(1)  opacity(0)   (mounted but invisible)
+     --visible → scale(ZOOM) opacity(1)  (triggered one rAF after mount)
+   On leave, React removes --visible, CSS transitions back to scale(1)
+   opacity(0), then React unmounts after the transition duration (260ms).
+   ─────────────────────────────────────────────────────────────────────────
+   z-index 30 — above the filmstrip panel (z-index 20).
+   pointer-events none — hover stays out of the way of the carousel.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Zoom factor — change here to taste */
+:root {
+  --wc-zoom: 2.5;
+  --wc-hover-duration: 180ms;
+}
+
+.wc-hover-preview {
+  /* Positioned exactly over the source thumbnail */
+  position: fixed;
+  top:    var(--py, 0px);
+  left:   var(--px, 0px);
+  width:  var(--pw, 220px);
+  height: var(--ph, 150px);
+
+  z-index: 30;
+  pointer-events: auto;
+
+  overflow: hidden;
+  border-radius: 4px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.75),
+    0 8px  24px rgba(0, 0, 0, 0.55);
+  background: #0e0703;
+
+  /* ── Transition ────────────────────────────────────────────────────── */
+  /* X origin: clamped in JS so zoomed preview stays within viewport.
+     Y origin: aligns with the thumbnail's vertical centre so the zoom
+     visually emanates from the hovered thumbnail. */
+  transform-origin: var(--pox, 50%) var(--poy, 50%);
+  /* Start compressed to ~60% of the thumbnail so the expand-outward motion
+     is visible from the very first frame. Scaling about the transform-origin
+     (thumbnail center) means it blooms outward from that anchor point. */
+  transform: scale(0.6);
+  opacity: 0;
+  transition:
+    transform var(--wc-hover-duration) cubic-bezier(0.16, 1, 0.3, 1),
+    opacity   calc(var(--wc-hover-duration) * 0.35) ease;
+}
+
+/* Visible state — applied one rAF after mount to trigger the transition */
+.wc-hover-preview--visible {
+  transform: scale(var(--pzoom, 2.8));
+  opacity: 1;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.8);
+}
+
+/* Text preview: clean drop shadow on white card */
+.wc-hover-preview--visible:has(.wc-hover-preview__text) {
+  box-shadow:
+    0  2px  8px rgba(0, 0, 0, 0.12),
+    0 24px 70px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Text content inside hover preview ──────────────────────────────────── */
+.wc-hover-preview__text {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.wc-hover-preview__text-excerpt {
+  flex: 1;
+  padding: 0.65rem 0.7rem 0.4rem;
+  font-size: 0.4rem;
+  line-height: 1.65;
+  color: rgba(0, 0, 0, 0.78);
+  text-align: left;
+  overflow: hidden;
+  /* Fade text at the bottom so it doesn't hard-clip */
+  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+
+.wc-hover-preview__text-label {
+  display: block;
+  padding: 0.3rem 0.6rem 0.33rem;
+  font-size: 0.46rem;
+  letter-spacing: 0.13em;
+  color: rgba(0, 0, 0, 0.6);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(0, 0, 0, 0.04);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ── Pills inside hover preview ─────────────────────────────────────────── */
+.wc-hover-preview__text .wc-pills {
+  padding: 0 0.7rem 0.45rem;
+  flex-shrink: 0;
+  gap: 0.2rem;
+}
+
+.wc-hover-preview__text .wc-pill {
+  font-size: 0.36rem;
+  padding: 0.1rem 0.35rem;
+}
+
+/* ── Media fill ─────────────────────────────────────────────────────────── */
+.wc-hover-preview img,
+.wc-hover-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  /* Lift the film filter so the enlarged version shows true colors */
+  filter: sepia(0.05) contrast(1.04) brightness(0.97) saturate(1.05);
+}
+
+/* ── Mobile: center preview in viewport on tap ──────────────────────────── */
+/* JS positions the element over the thumbnail; on touch we ignore that and  */
+/* center it instead. translate(-50%,-50%) must appear in both transform     */
+/* states so the scale transition still fires without a translate jump.       */
+@media (hover: none) {
+  .wc-hover-preview {
+    left: 50% !important;
+    top:  50% !important;
+    transform-origin: center center !important;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+
+  .wc-hover-preview--visible {
+    transform: translate(-50%, -50%) scale(var(--pzoom, 2.5));
+  }
+}
+
+/* Detail row text thumb: same glow on hover */
+.wc-row--detail .wc-thumb--text:hover {
+  z-index: 10;
+}
+
+/* ── Text-only thumbnail ────────────────────────────────────────────────── */
+.wc-thumb__media--text {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0.6rem 0.65rem;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.wc-thumb__media--desc {
+  cursor: default;
+}
+
+.wc-thumb__text-excerpt {
+  font-size: 0.55rem;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.4);
+  text-align: left;
+  /* clamp to the visible area */
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 0.25s;
+  pointer-events: none;
+  user-select: none;
+}
+
+.wc-thumb--active .wc-thumb__text-excerpt,
+.wc-thumb--text:hover .wc-thumb__text-excerpt,
+.wc-thumb--first-lit .wc-thumb__text-excerpt {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+/* ── Project description ────────────────────────────────────────────────── */
+.wc-description {
+  margin: 0;
+  padding: 0.6rem 1.25rem 0.7rem;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: rgba(200, 155, 90, 0.7);
+  background: #2e1507;
+  border-top: 1px solid #150901;
+  animation: wc-detail-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Description card: allow height to grow to fit pills ────────────────── */
+.wc-thumb__media--desc {
+  height: auto !important;
+  min-height: 140px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding-bottom: 0.55rem;
+}
+
+/* Clamp excerpt to fewer lines when pills are present so the card stays compact */
+.wc-thumb__media--desc .wc-thumb__text-excerpt {
+  -webkit-line-clamp: 5;
+}
+
+/* ── Skill + leadership pill row ────────────────────────────────────────── */
+.wc-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0 0.05rem;
+  max-width: 100%;
+}
+
+/* ── Base pill ───────────────────────────────────────────────────────────── */
+.wc-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.48rem;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  line-height: 1.4;
+}
+
+/* ── Skill + leadership pills: fixed site orange ─────────────────────────── */
+.wc-pill--skill,
+.wc-pill--leadership {
+  background: color-mix(in srgb, #c8783a 22%, transparent);
+  border: 1px solid color-mix(in srgb, #c8783a 50%, transparent);
+  color: rgba(230, 175, 100, 0.92);
+}
+

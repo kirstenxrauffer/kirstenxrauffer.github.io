@@ -1,0 +1,10 @@
+Full-stack engineer on the rich content team, supporting Grainger's millions of products and all their supporting materials, both static and dynamic. That includes product images, compliance documents like Energy Guides, 2D and 3D CAD files, videos, copy, and more.
+
+Technical accomplishments:
+- Sole engineer to decouple our codebase from a massive monorepo. Worked closely with organization leaders to carve the migration path, establishing the pattern for all future teams to follow
+- Oversaw the releases of Lightning Facts and Energy Guides
+- Currently improving search and upload UX across all asset types
+
+The internal system is proprietary and can't be shown here.
+
+skills: React · TypeScript · Java · Spring Boot · Digital Asset Management · Cloud Storage · Monorepo Migration · AWS · S3 · SQS · Akamai · Splunk · DataDog · Figma

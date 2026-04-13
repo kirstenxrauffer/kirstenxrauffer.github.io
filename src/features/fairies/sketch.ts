@@ -21,6 +21,8 @@ const INITIAL_FAIRY_COUNT = 1;
 export type SketchCallbacks = {
   /** Called when the pointer enters or leaves hover range of any fairy. */
   onHoverChange?: (isHovering: boolean) => void;
+  /** Called every draw frame with the first fairy's position in screen pixels. */
+  onPositionChange?: (x: number, y: number) => void;
 };
 
 export function makeSketch(callbacks: SketchCallbacks = {}): (p: p5) => void {
@@ -123,6 +125,9 @@ export function makeSketch(callbacks: SketchCallbacks = {}): (p: p5) => void {
         callbacks.onHoverChange?.(anyHovered);
       }
       drawEyes(p, fairies);
+      if (fairies.length > 0) {
+        callbacks.onPositionChange?.(fairies[0].pos.x, fairies[0].pos.y);
+      }
     };
   };
 }
@@ -132,11 +137,16 @@ export function makeSketch(callbacks: SketchCallbacks = {}): (p: p5) => void {
 function spawnInitialFairies(p: p5): Fairy[] {
   const out: Fairy[] = [];
   for (let i = 0; i < INITIAL_FAIRY_COUNT; i++) {
+    // Spawn on the left or right wing of the screen so the fairy doesn't
+    // start in the center text zone.
+    const spawnLeft = p.random() > 0.5;
     out.push(
       createFairy({
         id: `fairy-${i}`,
         pos: {
-          x: p.random(p.width * 0.25, p.width * 0.75),
+          x: spawnLeft
+            ? p.random(p.width * 0.05, p.width * 0.20)
+            : p.random(p.width * 0.80, p.width * 0.95),
           y: p.random(p.height * 0.1, p.height * 0.9),
         },
         heading: p.random(0, Math.PI * 2),
@@ -172,10 +182,20 @@ export function drawEyes(p: p5, fairies: Fairy[]): void {
     p.scale(fairy.scale);
     p.translate(-CANONICAL_CX, -CANONICAL_CY);
 
-    drawSclera(p, eyeASpec);
-    drawPupil(p, fairy, eyeASpec, fairy.eyeA);
-    drawSclera(p, eyeBSpec);
-    drawPupil(p, fairy, eyeBSpec, fairy.eyeB);
+    // When facing left (t<0.5) EYE_A is smaller (back), EYE_B is bigger (front) → draw A under B.
+    // When facing right (t≥0.5) EYE_A is bigger (front), EYE_B is smaller (back) → draw B under A.
+    // The swap happens at t=0.5 when both eyes are equal size, so it's imperceptible.
+    if (t < 0.5) {
+      drawSclera(p, eyeASpec);
+      drawPupil(p, fairy, eyeASpec, fairy.eyeA);
+      drawSclera(p, eyeBSpec);
+      drawPupil(p, fairy, eyeBSpec, fairy.eyeB);
+    } else {
+      drawSclera(p, eyeBSpec);
+      drawPupil(p, fairy, eyeBSpec, fairy.eyeB);
+      drawSclera(p, eyeASpec);
+      drawPupil(p, fairy, eyeASpec, fairy.eyeA);
+    }
 
     p.pop();
   }

@@ -1,0 +1,12 @@
+Built the Frequently Bought Together feature on the PDP, which laid the groundwork for future teams to build the Make It A Routine feature. Also developed the 2.0 delivery switcher component on the PDP.
+
+The PDP also features GLAMlab AR try-on for thousands of makeup, hair, and nail products, including a generative AI hair color tool (GLAMlab 2.0) that renders new looks in ~1 second.
+
+skills: React · TypeScript · AR · Ecommerce · Product Page · Component Architecture · Figma · Accessibility
+
+media:
+- frequently-bought-together.gif [Frequently Bought Together feature on PDP]
+- delivery-picker.gif [2.0 delivery switcher component on PDP]
+- source: https://www.ulta.com/discover/glamlab
+- source: https://www.ulta.com/innovation/experiences.html
+- press: https://chainstoreage.com/ulta-beauty-lets-customers-try-out-hair-colors-styles-virtually-generative-ai

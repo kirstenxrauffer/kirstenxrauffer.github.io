@@ -1,0 +1,7 @@
+Led projects giving enterprise admins the ability to upload their own content to LinkedIn Learning for their entire organization: documents, videos, learning paths, and collections.
+
+Bridged the gap between consumer LinkedIn Learning and admin LinkedIn Learning, driving the merge across both the API layer and the frontend, not just in process but in code. Unified shared components like cards across both surfaces so the two platforms stay seamlessly in sync. This was a significant cross-org effort spanning multiple teams I had no prior working relationship with, and I drove it to completion.
+
+The admin system is proprietary and can't be shown here.
+
+skills: React · TypeScript · Ember.js · Enterprise · Design Systems · Component Architecture · Leadership · Figma · Accessibility

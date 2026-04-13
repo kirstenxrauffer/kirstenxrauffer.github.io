@@ -6,7 +6,7 @@ import warpFrag from '../../shaders/watercolor_warp.frag';
 import watercolorFrag from '../../shaders/watercolor.frag';
 import blurFrag from '../../shaders/watercolor_blur.frag';
 import { N_PRE_BLUR, REVEAL_DURATION, REVEAL_PROGRESS_TARGET, UNIFORM_DEFAULTS } from './constants';
-import { pickHeroImage, slugToSeed } from './utils';
+import { pickHeroImage, slugToSeed, extractPalette } from './utils';
 import type { WatercolorCanvasProps } from './types';
 import { PetalScene } from '../petals/petal.scene';
 import styles from './WatercolorCanvas.module.scss';
@@ -16,10 +16,13 @@ export default function WatercolorCanvas({
   bloomOrigin = [0.5, 0.5],
   image,
   onRevealStart,
+  onPalette,
 }: WatercolorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onRevealStartRef = useRef(onRevealStart);
   onRevealStartRef.current = onRevealStart;
+  const onPaletteRef = useRef(onPalette);
+  onPaletteRef.current = onPalette;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -206,6 +209,10 @@ export default function WatercolorCanvas({
         renderer.setRenderTarget(null);
 
         passUniforms.uColor.value = src;
+
+        // Extract palette from the raw image and surface it to the parent
+        const palette = extractPalette(tex.image as HTMLImageElement | ImageBitmap, 4);
+        if (palette.length) onPaletteRef.current?.(palette);
       },
     );
 
@@ -240,16 +247,51 @@ export default function WatercolorCanvas({
     render();
 
     // ---- Resize -----------------------------------------------------------
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const onResize = () => {
-      if (disposed) return;
-      const rw = window.innerWidth;
-      const rh = window.innerHeight;
-      renderer.setSize(rw, rh, false);
-      warpRT.setSize(Math.floor(rw / 2), Math.floor(rh / 2));
-      warpUniforms.uResolution.value.set(rw, rh);
-      passUniforms.uResolution.value.set(rw, rh);
-      blurUniforms.uResolution.value.set(rw, rh);
-      petalScene.resize(rw, rh);
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        resizeTimer = null;
+        if (disposed) return;
+        const rw = window.innerWidth;
+        const rh = window.innerHeight;
+
+        // Resize renderer and all render targets
+        renderer.setSize(rw, rh, false);
+        warpRT.setSize(Math.floor(rw / 2), Math.floor(rh / 2));
+        preBlurRTs[0].setSize(rw, rh);
+        preBlurRTs[1].setSize(rw, rh);
+
+        // Update resolution uniforms
+        warpUniforms.uResolution.value.set(rw, rh);
+        passUniforms.uResolution.value.set(rw, rh);
+        blurUniforms.uResolution.value.set(rw, rh);
+        petalScene.resize(rw, rh);
+
+        // warpRT was cleared by setSize — re-render it at the same frozen time.
+        // When warpFrozen is true the render loop skips this pass, so we must
+        // do a one-shot render here.
+        const t = frozenTime ?? getElapsed();
+        warpUniforms.uTime.value = t;
+        renderer.setRenderTarget(warpRT);
+        renderer.render(warpScene, camera);
+        renderer.setRenderTarget(null);
+
+        // If the hero image has already loaded, re-run the blur pre-pass at the
+        // new resolution and update the composite pass source texture.
+        if (colorTex.image) {
+          let src: THREE.Texture = colorTex;
+          for (let i = 0; i < N_PRE_BLUR; i++) {
+            const dst = preBlurRTs[i % 2];
+            blurUniforms.uColor.value = src;
+            renderer.setRenderTarget(dst);
+            renderer.render(blurScene, camera);
+            src = dst.texture;
+          }
+          renderer.setRenderTarget(null);
+          passUniforms.uColor.value = src;
+        }
+      }, 150);
     };
     window.addEventListener('resize', onResize);
 
@@ -257,6 +299,7 @@ export default function WatercolorCanvas({
     return () => {
       disposed = true;
       cancelAnimationFrame(animFrameId);
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
       gsap.killTweensOf(progressObj);
 

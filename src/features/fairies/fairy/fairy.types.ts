@@ -12,7 +12,8 @@ export type World = { w: number; h: number };
 export type FSMState =
   | { kind: 'wander'; nextHeadingAt: number }
   | { kind: 'approach'; target: Vec2; enteredAt: number }
-  | { kind: 'orbit'; orbitAngle: number; orbitPhase: number; orbitDir: 1 | -1 };
+  | { kind: 'orbit'; orbitAngle: number; orbitPhase: number; orbitDir: 1 | -1 }
+  | { kind: 'flee'; targetPos: Vec2 };
 
 export type FlipStyle = 'pitch' | 'yaw';
 

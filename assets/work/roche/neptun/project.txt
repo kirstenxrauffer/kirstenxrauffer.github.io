@@ -1,0 +1,17 @@
+iOS diabetes management app built for Roche, now operated by Linova. It logs blood glucose, insulin, and nutrition, with Bluetooth sync to Accu-Chek meters, Apple Watch support, and a rule-based coaching engine.
+
+Originally built as a proof-of-concept (POC), but due to its success and robustness it still exists today in its original form, down to the original charts and icons.
+
+Joined as an intern (Praktikum) through TU Munich. Designed the entire UI and all iconography, and was the core frontend developer. Built the interface from scratch in Swift. Also assisted with the Bluetooth LE integration for syncing patient data from Accu-Chek glucose monitors.
+
+skills: Swift · iOS · Bluetooth LE · Apple Watch · HealthKit · Mobile · UI Design · Iconography · Internship
+
+media:
+- overview.png [case study overview screenshot]
+- app-icon.png [Neptun app icon]
+- phone-mockup.webp [phone mockup hero]
+- app-store-banner.webp [App Store download banner]
+- coaching.webp [coaching / mobile coach feature screen]
+- diary.webp [diary / logging screen]
+- devices.webp [Bluetooth device connectivity screen]
+- source: https://quickbirdmedical.com/en/project/neptune-diabetes-managment/

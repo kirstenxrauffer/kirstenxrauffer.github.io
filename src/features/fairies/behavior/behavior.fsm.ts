@@ -3,12 +3,17 @@
 //
 // FSM:
 //   WANDER -(ptr seen)-> APPROACH -(at standoff)-> ORBIT -(ptr lost)-> WANDER
+//   Any state -(nav opens)-> FLEE -(safe distance reached)-> WANDER
 //
 // The fairy pursues the live cursor. In APPROACH it targets a standoff point
 // STANDOFF_DIST px from the cursor (toward itself), braking as it arrives.
 // On arrival it enters ORBIT, continuously circling the cursor at a radius
 // that breathes in and out via two overlapping sines — creating the
 // "sometimes getting closer, then pulling back" feel.
+//
+// FLEE: when the nav menu opens the fairy flies ~220 px away from the nav
+// panel (opposite direction) then wanders, biased away from the nav area
+// until the menu closes.
 //
 // Side-effects: mutates `fairy` in place.
 
@@ -29,8 +34,14 @@ import {
   STANDOFF_DIST,
   WANDER_SPEED,
   FAIRY_REPEL_DISTANCE,
+  FLEE_SPEED,
+  FLEE_ARRIVAL_DIST,
+  NAV_AVOID_RADIUS,
+  CENTER_AVOID_RX_FRAC,
+  CENTER_AVOID_RY_FRAC,
 } from '../fairy/constants';
 import type { Pointer } from '../input/pointer';
+import { navArea } from '../navArea';
 
 export type NoiseFn = (x: number, y: number, z: number) => number;
 
@@ -119,6 +130,98 @@ function fairyRepelBias(fairy: Fairy, allFairies: Fairy[]): number | null {
   return Math.atan2(repelY, repelX);
 }
 
+// ─── Nav-flee helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Which side of the screen has the most space around the nav click point.
+ * Mirrors bestNavSide in NavMenu.tsx so the FSM and React agree on nav direction.
+ */
+function computeNavSide(world: World): 'left' | 'right' | 'top' | 'bottom' {
+  const spaces = {
+    right:  world.w - navArea.clickX,
+    left:   navArea.clickX,
+    bottom: world.h - navArea.clickY,
+    top:    navArea.clickY,
+  };
+  return (Object.keys(spaces) as Array<keyof typeof spaces>)
+    .reduce((a, b) => spaces[a] >= spaces[b] ? a : b);
+}
+
+/**
+ * Safe destination ~220 px from the nav in the direction opposite the nav panel
+ * (e.g. nav appears right of navi → flee left).
+ */
+function computeFleeTarget(world: World): Vec2 {
+  const side = computeNavSide(world);
+  const FLEE_DIST = 220;
+  let fx = navArea.clickX;
+  let fy = navArea.clickY;
+  switch (side) {
+    case 'right':  fx -= FLEE_DIST; break;
+    case 'left':   fx += FLEE_DIST; break;
+    case 'bottom': fy -= FLEE_DIST; break;
+    case 'top':    fy += FLEE_DIST; break;
+  }
+  return {
+    x: Math.max(60, Math.min(world.w - 60, fx)),
+    y: Math.max(60, Math.min(world.h - 60, fy)),
+  };
+}
+
+/** Soft repel while wandering near the nav area. */
+function navAreaRepelBias(fairy: Fairy): number | null {
+  if (!navArea.active) return null;
+  const dx = fairy.pos.x - navArea.clickX;
+  const dy = fairy.pos.y - navArea.clickY;
+  const dist = Math.hypot(dx, dy);
+  if (dist >= NAV_AVOID_RADIUS || dist < 0.5) return null;
+  return Math.atan2(dy, dx);
+}
+
+/**
+ * Steer away from the centre-screen content ellipse while wandering.
+ * Activates when the fairy's normalised ellipse distance drops below
+ * SOFT_MARGIN (i.e. inside the ellipse or within ~50% of its boundary).
+ * Has no effect during APPROACH or ORBIT so the fairy still chases the cursor.
+ */
+function centerAvoidBias(fairy: Fairy, world: World): number | null {
+  const cx = world.w / 2;
+  const cy = world.h / 2;
+  const rx = world.w * CENTER_AVOID_RX_FRAC;
+  const ry = world.h * CENTER_AVOID_RY_FRAC;
+
+  const dx = fairy.pos.x - cx;
+  const dy = fairy.pos.y - cy;
+
+  // Normalised ellipse distance: <1 = inside, 1 = on boundary, >1 = outside.
+  const normDist = Math.sqrt((dx / rx) ** 2 + (dy / ry) ** 2);
+
+  // Bias activates within a 50% soft margin outside the hard ellipse boundary.
+  const SOFT_MARGIN = 1.5;
+  if (normDist >= SOFT_MARGIN || normDist < 0.001) return null;
+
+  // Steer directly away from the centre of the ellipse.
+  return Math.atan2(dy, dx);
+}
+
+/** Fly toward fsm.targetPos at FLEE_SPEED, braking as navi closes in. */
+function tickFlee(fairy: Fairy, dt: number): void {
+  const fsm = fairy.fsm as Extract<FSMState, { kind: 'flee' }>;
+  const dx = fsm.targetPos.x - fairy.pos.x;
+  const dy = fsm.targetPos.y - fairy.pos.y;
+  steerHeading(fairy, Math.atan2(dy, dx), dt);
+  const distToTarget = Math.hypot(dx, dy);
+  // Floor at 0.25 so navi doesn't freeze just before the target.
+  const brakeFactor = Math.max(0.25, Math.min(1, distToTarget / APPROACH_BRAKE_DIST));
+  const targetSpeed = FLEE_SPEED * brakeFactor;
+  const currentSpeed = Math.hypot(fairy.vel.x, fairy.vel.y);
+  const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * 4);
+  fairy.vel.x = Math.cos(fairy.heading) * nextSpeed;
+  fairy.vel.y = Math.sin(fairy.heading) * nextSpeed;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export type TickArgs = {
   fairy: Fairy;
   pointer: Pointer;
@@ -145,6 +248,11 @@ export function tickFairy(args: TickArgs): void {
   switch (fairy.fsm.kind) {
     case 'wander':
       eyeTarget = null;
+      // Nav open: flee before wandering logic runs.
+      if (navArea.active) {
+        fairy.fsm = { kind: 'flee', targetPos: computeFleeTarget(world) };
+        break;
+      }
       tickWander(fairy, dt, now, noise, world, allFairies);
       // Transition to APPROACH immediately when pointer is seen — no pause.
       if (ptrTarget) {
@@ -153,6 +261,11 @@ export function tickFairy(args: TickArgs): void {
       break;
 
     case 'approach': {
+      // Nav open: abort approach, flee.
+      if (navArea.active) {
+        fairy.fsm = { kind: 'flee', targetPos: computeFleeTarget(world) };
+        break;
+      }
       eyeTarget = ptrTarget;
       const standoff = ptrTarget ? computeStandoff(fairy.pos, ptrTarget) : null;
       tickApproach(fairy, standoff, dt);
@@ -178,12 +291,38 @@ export function tickFairy(args: TickArgs): void {
     }
 
     case 'orbit': {
+      // Nav open: break orbit, flee.
+      if (navArea.active) {
+        fairy.fsm = { kind: 'flee', targetPos: computeFleeTarget(world) };
+        break;
+      }
       eyeTarget = ptrTarget;
       if (!ptrTarget) {
         fairy.fsm = { kind: 'wander', nextHeadingAt: now + 500 };
         break;
       }
       tickOrbit(fairy, ptrTarget, dt);
+      break;
+    }
+
+    case 'flee': {
+      const fsm = fairy.fsm as Extract<FSMState, { kind: 'flee' }>;
+      eyeTarget = fsm.targetPos; // eyes track destination while fleeing
+      if (!navArea.active) {
+        // Nav closed — return to normal.
+        fairy.fsm = { kind: 'wander', nextHeadingAt: now + 200 };
+        break;
+      }
+      const distToTarget = Math.hypot(
+        fairy.pos.x - fsm.targetPos.x,
+        fairy.pos.y - fsm.targetPos.y,
+      );
+      if (distToTarget < FLEE_ARRIVAL_DIST) {
+        // Reached safe spot — wander (nav-area repel keeps distance while open).
+        fairy.fsm = { kind: 'wander', nextHeadingAt: now + 200 };
+        break;
+      }
+      tickFlee(fairy, dt);
       break;
     }
   }
@@ -201,13 +340,23 @@ function tickWander(fairy: Fairy, dt: number, now: number, noise: NoiseFn, world
   const n = noise(fairy.pos.x * 0.002, fairy.pos.y * 0.002, now * 0.0005 + fairy.rngSeed * 0.001);
   let desired = n * TAU;
 
-  // Fairy repulsion takes priority over edge avoidance.
+  // Priority: fairy repulsion > center avoidance > nav-area avoidance > edge avoidance > noise.
   const repelBias = fairyRepelBias(fairy, allFairies);
   if (repelBias !== null) {
     desired = repelBias;
   } else {
-    const bias = edgeAvoidBias(fairy, world);
-    if (bias !== null) desired = bias;
+    const centerBias = centerAvoidBias(fairy, world);
+    if (centerBias !== null) {
+      desired = centerBias;
+    } else {
+      const navBias = navAreaRepelBias(fairy);
+      if (navBias !== null) {
+        desired = navBias;
+      } else {
+        const bias = edgeAvoidBias(fairy, world);
+        if (bias !== null) desired = bias;
+      }
+    }
   }
 
   steerHeading(fairy, desired, dt);
@@ -246,10 +395,10 @@ function tickApproach(fairy: Fairy, standoff: Vec2 | null, dt: number): void {
 }
 
 // Orbit the cursor at a radius that breathes in and out organically.
-// Two overlapping sines (phase and 1.7× phase) with different weights so the
+// Two overlapping sines (phase and 1.7x phase) with different weights so the
 // combined waveform never perfectly repeats, giving a natural "closer / farther"
 // rhythm. Both are zero at phase=0 so the orbit radius starts exactly at
-// ORBIT_RADIUS_BASE (≈ where the approach left off) and drifts from there.
+// ORBIT_RADIUS_BASE (where the approach left off) and drifts from there.
 function tickOrbit(fairy: Fairy, ptr: Vec2, dt: number): void {
   const fsm = fairy.fsm as Extract<FSMState, { kind: 'orbit' }>;
 

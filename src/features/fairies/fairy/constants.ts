@@ -109,3 +109,13 @@ export const ORBIT_RADIUS_BASE    = 30;   // px from cursor; initial orbit radiu
 export const ORBIT_RADIUS_VARIANCE = 15;  // px; range ≈ 7–52 px from cursor
 export const ORBIT_PHASE_SPEED    = 0.3;  // rad/s — radius oscillation period ≈ 21 s
 export const ORBIT_SPEED          = 60;   // px/s — chase speed for orbit target
+
+// Flee constants — entered when the nav menu opens.
+export const FLEE_SPEED        = 80;   // px/s — brisk departure
+export const FLEE_ARRIVAL_DIST = 50;   // px — close enough to the flee target to switch to wander
+export const NAV_AVOID_RADIUS  = 180;  // px — bubble around nav click pos navi stays outside
+
+// Center-text avoidance — keeps the fairy out of the viewport's central content zone.
+// Fractions of viewport width/height define the ellipse semi-axes.
+export const CENTER_AVOID_RX_FRAC = 0.28; // ~360px on a 1280px screen
+export const CENTER_AVOID_RY_FRAC = 0.24; // ~173px on a 720px screen

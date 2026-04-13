@@ -64,7 +64,7 @@ declare module 'p5.brush' {
   export function wash(r: number, g: number, b: number, a?: number): void;
   export function noWash(): void;
   export function fillBleed(strength: number, direction?: 'in' | 'out'): void;
-  export function fillTexture(strength: number, frequency?: number): void;
+  export function fillTexture(strength: number, frequency?: number, scatter?: boolean): void;
 
   // Primitives.
   export function line(x1: number, y1: number, x2: number, y2: number): void;

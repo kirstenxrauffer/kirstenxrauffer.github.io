@@ -1,0 +1,16 @@
+Nitro perk that auto-plays a Soundboard clip when you join a voice channel, announcing your arrival with a personalized sound. Configurable per-server or globally.
+
+The emoji infrastructure built for Voice Channel Reactions was seamlessly extended here. Users can pair an emoji with each entrance sound, giving every clip a visual identity. That pairing does double duty: it keeps your sound library organized at a glance, and it lets the emoji animate across the channel screen the moment you walk in, turning a simple audio cue into a fully expressive entrance moment.
+
+Animations were driven by Lottie. To make each entrance feel distinct, we sampled the dominant colors from the paired emoji and injected them directly into the animation, so every burst is tinted by the character of the emoji itself. No two entrances look quite the same.
+
+Primary developer for the feature end-to-end.
+
+skills: React · TypeScript · Audio · Animation · Lottie · DataDog · Figma · Accessibility
+
+media:
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/68379f8bfe550b60bc8abf5d_image10.png [blog header]
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/68379e8742175f8d6bda0eac_AD_4nXd0ftdOarOpe25rFvASaZzAWVqxwgIUVm8oJpZ1XhT-KfpQdcJQfYvxrlLT4OzENG50mX5SQjRJSynaatgVeCDGiBu-3OsztAa3tWneKJx9Jz5SBOtgeilTUWUrC6lvJ88K8lp1.png [promo: "Custom Sounds Anywhere"]
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/68379da19daf16587612b18e_AD_4nXemkg4szNL4hv3zhpJTdtQMDzvo2Dxnt5pntGJFFI6Qq-chL1NePc_VFaR6VaY6SOZa4vlx9KTDjVbGVeYZp3yw54VouzkkP7dJkJR1VnmPCn9EZ7heBLSj0T2mJIXni-Hj1ir9dA.png [soundboard location, mobile + desktop]
+- https://cdn.prod.website-files.com/5f9072399b2640f14d6a2bf4/68379dddfe550b60bc89cbf5_AD_4nXfWMhZ-d2Jjm_HmVdqYJ8hgrnFVpRbBcWvXv7nSKbbsYyLP5uCkdO68VBrDXNX_cMXVBwSe63ET4cA88kqyr5aR7Xin9Pk6xLxU6BpSo0uqEPfBHYATcw8TTcftd4GUq6GrjSYj.png [uploading a sound, desktop]
+- source: https://discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds

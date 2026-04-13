@@ -90,7 +90,16 @@
   width: 100%;
   margin: 0 auto;
   position: relative;
-  z-index: 1;
+  z-index: 12;
+}
+
+/* Tight wrapper around the page section — gives the nav a `top: 100%` anchor
+   so it appears directly below the content without affecting layout height. */
+.app__routes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .app__main section {
@@ -101,6 +110,8 @@
   color: black;
   opacity: 0;
   transform: scale(0);
+  position: relative;
+  z-index: 3;
 }
 
 .app__main--revealed section {

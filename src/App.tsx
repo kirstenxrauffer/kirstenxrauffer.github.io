@@ -1,13 +1,15 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { useAppSelector } from './app/hooks';
 import { FairyCanvas } from './features/fairies';
 import { WatercolorCanvas } from './features/watercolor';
-import { HERO_IMAGES, REVEAL_DURATION } from './features/watercolor/constants';
+import { HERO_IMAGES } from './features/watercolor/constants';
 import NavMenu from './components/NavMenu';
+import WorkCarousel from './features/work/WorkCarousel';
+import { WORK_MANIFEST } from './features/work/workManifest';
 import Home from './pages/Home';
-import Work from './pages/Work';
 import About from './pages/About';
+import Contact from './pages/Contact';
 import './App.css';
 
 function shuffle<T>(arr: T[]): T[] {
@@ -24,10 +26,12 @@ const SceneBackground = React.memo(function SceneBackground({
   currentImage,
   fadingOut,
   onRevealStart,
+  onPalette,
 }: {
   currentImage: string;
   fadingOut: boolean;
   onRevealStart: () => void;
+  onPalette: (palette: string[]) => void;
 }) {
   return (
     <div style={{ opacity: fadingOut ? 0 : 1, transition: 'opacity 0.5s ease' }}>
@@ -35,6 +39,7 @@ const SceneBackground = React.memo(function SceneBackground({
         key={currentImage}
         image={currentImage}
         onRevealStart={onRevealStart}
+        onPalette={onPalette}
       />
     </div>
   );
@@ -43,8 +48,7 @@ const SceneBackground = React.memo(function SceneBackground({
 function App() {
   const mode = useAppSelector((s) => s.theme.mode);
 
-  const [sceneQueue, setSceneQueue] = useState<string[]>(() => shuffle(HERO_IMAGES));
-  const [fadingOut, setFadingOut] = useState(false);
+  const [sceneQueue] = useState<string[]>(() => shuffle(HERO_IMAGES));
 
   // revealStarted: fires immediately on canvas mount → enables section entrance animation
   const [revealStarted, setRevealStarted] = useState(false);
@@ -52,34 +56,64 @@ function App() {
   //   shows NavMenu + locks sections to final state so nav clicks don't replay animations
   const [revealComplete, setRevealComplete] = useState(false);
 
-  const transitioningRef = useRef(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [palette, setPalette] = useState<string[]>([]);
+  const [activeCompany,  setActiveCompany]  = useState<string | null>(null);
+  const [exitingCompany, setExitingCompany] = useState<string | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleRevealStart = useCallback(() => setRevealStarted(true), []);
+  const handlePalette     = useCallback((p: string[]) => setPalette(p), []);
 
   // Timer-based reveal completion — independent of GSAP / canvas lifecycle / StrictMode.
-  // Fires (REVEAL_DURATION + 1.5s tween delay + 1s buffer) after revealStarted.
+  // Fires (REVEAL_DURATION + 1.5s tween delay - 1.8s early) after revealStarted.
+  // power2.out easing means the animation is visually ~94% complete at 75% of duration;
+  // we surface the nav then rather than waiting for the imperceptible tail end.
   // StrictMode double-fire is safe: cleanup cancels the first timer, second is canonical.
   useEffect(() => {
     if (!revealStarted) return;
     const id = window.setTimeout(
       () => setRevealComplete(true),
-      (REVEAL_DURATION + 1.5 + 1) * 1000,
+      5500,
     );
     return () => clearTimeout(id);
   }, [revealStarted]);
 
+  const CAROUSEL_EXIT_MS = 380;
+
+  const handleClose = useCallback(() => {
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    if (activeCompany !== null) {
+      setExitingCompany(activeCompany);
+      setActiveCompany(null);
+      exitTimerRef.current = setTimeout(() => {
+        setExitingCompany(null);
+        setNavOpen(false);
+      }, CAROUSEL_EXIT_MS);
+    } else {
+      setNavOpen(false);
+      setExitingCompany(null);
+    }
+  }, [activeCompany]);
+
+  const handleCompanySelect = useCallback((slug: string) => {
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    if (activeCompany === slug) return;
+    if (activeCompany !== null) {
+      setExitingCompany(activeCompany);
+      setActiveCompany(null);
+      exitTimerRef.current = setTimeout(() => {
+        setExitingCompany(null);
+        setActiveCompany(slug);
+      }, CAROUSEL_EXIT_MS);
+    } else {
+      setActiveCompany(slug);
+    }
+  }, [activeCompany]);
+
   const handleFairyClick = useCallback(() => {
-    if (transitioningRef.current || sceneQueue.length <= 1) return;
-    transitioningRef.current = true;
-    setFadingOut(true);
-    setTimeout(() => {
-      setSceneQueue(q => q.slice(1));
-      setRevealStarted(false);
-      setRevealComplete(false);
-      setFadingOut(false);
-      transitioningRef.current = false;
-    }, 600);
-  }, [sceneQueue.length]);
+    setNavOpen(prev => !prev);
+  }, []);
 
   const currentImage = sceneQueue[0];
 
@@ -93,19 +127,38 @@ function App() {
     <div className={`app app--${mode}`}>
       <SceneBackground
         currentImage={currentImage}
-        fadingOut={fadingOut}
+        fadingOut={false}
         onRevealStart={handleRevealStart}
+        onPalette={handlePalette}
       />
-      <FairyCanvas onFairyClick={handleFairyClick} />
-      {revealComplete && <NavMenu />}
-
+      <FairyCanvas onFairyClick={handleFairyClick} navOpen={navOpen} />
       <main className={mainClass}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/work" element={<Work />} />
-          <Route path="/about" element={<About />} />
-        </Routes>
+        <div className="app__routes">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+          </Routes>
+          <NavMenu
+            open={navOpen}
+            ready={revealComplete}
+            onClose={handleClose}
+            onCompanySelect={handleCompanySelect}
+            palette={palette}
+          />
+        </div>
       </main>
+
+      {/* Two separate keyed instances so exit plays on the outgoing instance
+          while the new one mounts fresh and runs its enter animation. */}
+      {exitingCompany && (() => {
+        const co = WORK_MANIFEST.find(c => c.slug === exitingCompany || c.label === exitingCompany);
+        return co ? <WorkCarousel key={'exit-' + exitingCompany} company={co} onClose={handleClose} exiting /> : null;
+      })()}
+      {activeCompany && (() => {
+        const co = WORK_MANIFEST.find(c => c.slug === activeCompany || c.label === activeCompany);
+        return co ? <WorkCarousel key={activeCompany} company={co} onClose={handleClose} /> : null;
+      })()}
     </div>
   );
 }

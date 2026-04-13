@@ -46,6 +46,9 @@ const GRAVITY_PX = 55;
 // Horizontal drift: gentle sideways float like pollen on a breeze.
 const DRIFT_PX = 14;
 
+// Global opacity scale — 1.0 = full, 0.5 = half opacity for all pollen & sparkle.
+const POLLEN_OPACITY = 0.5;
+
 // Dots drawn per stamp per frame.
 const DOT_COUNT = 4;
 
@@ -134,7 +137,7 @@ export function drawPollenTrail(p: p5, now: number): void {
     const lifeLeft = 1 - (now - s.createdAt) / TRAIL_TTL_MS;
     // easeInQuad: fades sooner than linear, decelerates toward expiry.
     const alpha01 = lifeLeft * lifeLeft;
-    const alpha = Math.round(alpha01 * 200);
+    const alpha = Math.round(alpha01 * 200 * POLLEN_OPACITY);
     if (alpha <= 0) continue;
 
     const age01 = 1 - lifeLeft;
@@ -194,28 +197,28 @@ export function drawPollenTrail(p: p5, now: number): void {
 
     // Cross-flare arms: two thin ellipses at 0° and 90°.
     const flareDim = SPARKLE_FLARE_LEN * 2 * sparkleAlpha;
-    const flareAlpha = Math.round(sparkleAlpha * 200);
+    const flareAlpha = Math.round(sparkleAlpha * 200 * POLLEN_OPACITY);
     p.fill(255, 255, 255, flareAlpha);
     p.ellipse(cx, cy, flareDim, 2);  // horizontal arm
     p.ellipse(cx, cy, 2, flareDim);  // vertical arm
 
     // Layered glow circles: inner bright core → mid → soft outer halo.
-    p.fill(255, 255, 255, Math.round(sparkleAlpha * 230));
+    p.fill(255, 255, 255, Math.round(sparkleAlpha * 230 * POLLEN_OPACITY));
     p.circle(cx, cy, SPARKLE_INNER_D);
-    p.fill(255, 255, 255, Math.round(sparkleAlpha * 120));
+    p.fill(255, 255, 255, Math.round(sparkleAlpha * 120 * POLLEN_OPACITY));
     p.circle(cx, cy, SPARKLE_MID_D);
-    p.fill(255, 255, 255, Math.round(sparkleAlpha * 60));
+    p.fill(255, 255, 255, Math.round(sparkleAlpha * 60 * POLLEN_OPACITY));
     p.circle(cx, cy, SPARKLE_OUTER_D);
 
     // Extended soft glow — larger rings with a warm amber tint that bleeds into
     // the surrounding pollen gold, making the sparkle feel embedded in the dust.
-    p.fill(255, 240, 160, Math.round(sparkleAlpha * 30));
+    p.fill(255, 240, 160, Math.round(sparkleAlpha * 30 * POLLEN_OPACITY));
     p.circle(cx, cy, SPARKLE_GLOW_D1);
-    p.fill(255, 220, 120, Math.round(sparkleAlpha * 16));
+    p.fill(255, 220, 120, Math.round(sparkleAlpha * 16 * POLLEN_OPACITY));
     p.circle(cx, cy, SPARKLE_GLOW_D2);
-    p.fill(255, 200, 80, Math.round(sparkleAlpha * 8));
+    p.fill(255, 200, 80, Math.round(sparkleAlpha * 8 * POLLEN_OPACITY));
     p.circle(cx, cy, SPARKLE_GLOW_D3);
-    p.fill(255, 180, 60, Math.round(sparkleAlpha * 4));
+    p.fill(255, 180, 60, Math.round(sparkleAlpha * 4 * POLLEN_OPACITY));
     p.circle(cx, cy, SPARKLE_GLOW_D4);
   }
 }

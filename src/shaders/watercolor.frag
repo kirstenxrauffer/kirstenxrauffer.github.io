@@ -347,9 +347,20 @@ float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingCol
     float edgeGrain    = grain0 * 0.65 + grain1 * 0.35;
     float grainDisplace = (edgeGrain * 2.0 - 1.0) * uFiberStrength * 0.12;
 
+    // Horizontal stretch on portrait viewports (mobile): widens the clear zone
+    // without changing its vertical extent. In UV space, distance(uv, origin) maps
+    // to a shape that is taller than wide on narrow screens — a UV distance of 0.30
+    // spans only 117 px horizontally but 253 px vertically on a 390×844 device.
+    // Dividing diff.x by 1/aspect restores a screen-space circle on portrait.
+    // Clamped to [1, 2]: no effect on landscape/desktop, activates only on portrait.
+    float viewAspect = uResolution.x / uResolution.y;
+    float xStretch = clamp(1.0 / viewAspect, 1.0, 2.0);
+
     // Damped warp: full influence (±0.26) can triple the zone size on negative warpField.
     // Cap at 30% of uWarpInfluence so the boundary stays organic but compact.
-    float front = distance(uv, origin) + uWarpInfluence * 0.3 * warpField + grainDisplace;
+    vec2 diff = uv - origin;
+    diff.x /= xStretch;
+    float front = length(diff) + uWarpInfluence * 0.3 * warpField + grainDisplace;
 
     // Animate the clear zone radius so the white fade and ring grow together.
     // clearRingFade drives both: the white zone expands from 0 → CLEAR_PROGRESS
@@ -374,7 +385,10 @@ float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingCol
 
     // Tide-mark ring — tracks the animated clear zone boundary so it and the
     // white fade always grow together. Uses a more-warped front for extra wobble.
-    float ringFront     = distance(uv, origin) + uWarpInfluence * 1.0 * warpField + grainDisplace * 3.0;
+    // Same x-stretch as `front` above so the ring traces the white zone edge.
+    vec2 ringDiff = uv - origin;
+    ringDiff.x /= xStretch;
+    float ringFront     = length(ringDiff) + uWarpInfluence * 1.0 * warpField + grainDisplace * 3.0;
     float ringRadius    = animatedClearProg;
     float ring          = 1.0 - smoothstep(0.0, 0.010, abs(ringFront - ringRadius));
     clearRingColor = vec3(ring * uRingStrength * 0.25 * clearRingFade);

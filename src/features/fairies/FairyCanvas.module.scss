@@ -11,8 +11,8 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
-  opacity: 0.95;
+  z-index: 13;
+  opacity: 1;
 
   &__host {
     width: 100%;
@@ -27,4 +27,52 @@
     color: rgba(0, 0, 0, 0.55);
     pointer-events: none;
   }
+}
+
+// ── Navi label ────────────────────────────────────────────────────────────────
+// Positioned imperatively via JS (transform set every frame from sketch).
+// Only opacity is transitioned — transform must never animate via CSS or it
+// would lag behind the fairy position.
+
+.fairy-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+  transition: opacity 0.35s ease;
+
+  &[data-visible='true'] {
+    opacity: 1;
+  }
+
+  &__text {
+    background: rgba(210, 170, 240, 1);
+    color: #2d103d;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.9rem;
+    backdrop-filter: blur(6px);
+    white-space: nowrap;
+    margin-bottom: 0.25rem;
+  }
+
+  &__arrow {
+    width: 0;
+    height: 0;
+    border-left: 0.3rem solid transparent;
+    border-right: 0.3rem solid transparent;
+    border-top: 0.38rem solid rgba(210, 170, 240, 1);
+    animation: fairy-label-bounce 0.85s ease-in-out infinite;
+  }
+}
+
+@keyframes fairy-label-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
 }
