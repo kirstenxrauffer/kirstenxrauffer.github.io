@@ -19,12 +19,12 @@
   // Transform composed via CSS vars so hover can overlay scale without overriding translate/rotate
   transform: translate(var(--snx, 0px), var(--sny, 0px)) rotate(var(--snr, 0deg)) scale(1);
   transition:
-    box-shadow 0.15s linear,
-    transform  0.15s linear;
+    box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    transform  0.28s cubic-bezier(0.16, 1, 0.3, 1);
 
-  // Hover scale is gated behind .hoverReady (added by JS after a 500ms dwell)
-  // so a quick grab-to-drag doesn't trigger the zoom mid-drag.
-  &.hoverReady:hover {
+  // Grown state driven by .hoverReady class alone (no :hover) so touch gets
+  // the same CSS transition on both grow and shrink.
+  &.hoverReady {
     box-shadow: 14px 14px 20px rgba(0, 0, 0, 0.55);
     transform: translate(var(--snx, 0px), var(--sny, 0px)) rotate(var(--snr, 0deg)) scale(1.5);
     z-index: 999;

@@ -73,7 +73,11 @@ export function StickyNote({ title, palette, rotation, children }: StickyNotePro
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     clearHoverTimer();
-    setHoverReady(false);
+    // For touch, don't reset hoverReady here — onPointerUp toggles it, and
+    // resetting first would cause !false=true on up, preventing shrink.
+    if (e.pointerType !== 'touch') {
+      setHoverReady(false);
+    }
     tapHeldRef.current = false;
     setIsDragging(true);
     pointerTypeRef.current = e.pointerType;

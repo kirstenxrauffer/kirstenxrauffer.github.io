@@ -160,7 +160,6 @@
 .wc-row--detail {
   margin-top: -4px;
   animation-delay: 0.06s;
-  rotate: 1deg;
 }
 
 /* Both rows: overflow: visible so items can scale outside the film-strip bounds.
@@ -232,6 +231,10 @@
 .wc-thumb {
   flex-shrink: 0;
   background: #0d0d0d;
+  /* Explicit `border: none` — .wc-thumb renders as a <button>, and without
+     this the user-agent default button border shows up as a light outline
+     on the dark film-strip background. */
+  border: none;
   border-radius: 12px;
   padding: 0;
   cursor: default;
@@ -241,7 +244,7 @@
   align-items: stretch;
   position: relative;
 
-  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
+  transition: box-shadow 0.22s, transform 0.22s;
 }
 
 .wc-thumb--clickable {
@@ -271,7 +274,7 @@
   border-color: transparent;
   border-radius: 4px;
   box-shadow: none;
-  transform: translateY(-5px) scale(1.12);
+  transform: none;
   z-index: 10;
 }
 
@@ -586,6 +589,7 @@
   background: #fff;
   text-align: center;
   overflow: hidden;
+  transition: background 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wc-thumb__title-text {
@@ -603,7 +607,7 @@
     0 1px 0 rgba(0, 0, 0, 0.12),
     0 2px 6px rgba(0, 0, 0, 0.10),
     0 0 14px color-mix(in srgb, var(--brand-color, #f0b030) 35%, transparent);
-  transition: color 0.22s, text-shadow 0.22s;
+  transition: color 0.28s cubic-bezier(0.16, 1, 0.3, 1), text-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Word-count-driven sizing */
@@ -763,11 +767,15 @@
 
 /* On mobile, only the description sticky note is shown — the skills note
    would crowd the selected cell and the doodle note has nowhere to land
-   without overlapping the carousel rows. */
+   without overlapping the carousel rows. Position note 1 under the first
+   cell (centered on it) rather than between cells 1 and 2. */
 @media (max-width: 640px) {
   .wc-note-anchor--top-selected,
   .wc-note-anchor--detail-br {
     display: none;
+  }
+  .wc-note-anchor--detail-mid {
+    left: calc(var(--wc-cell-w) / 2 - 87.5px);
   }
 }
 
