@@ -6,12 +6,14 @@ import { HERO_IMAGES } from './features/watercolor/constants';
 import NavMenu from './components/NavMenu';
 import { WORK_MANIFEST } from './features/work/workManifest';
 import Home from './pages/Home';
+import About from './pages/About';
+import Contact from './pages/Contact';
 import './App.css';
 
-// Home stays eager (LCP route). Secondary routes + the work gallery are
-// code-split so the initial bundle only carries what the landing needs.
-const About        = lazy(() => import('./pages/About'));
-const Contact      = lazy(() => import('./pages/Contact'));
+// Page routes are eager — each is ~1KB gzipped, and lazy-loading them caused
+// a one-frame Suspense flash on first navigation (even with chunk preloading,
+// React.lazy throws on first mount). WorkCarousel stays lazy: it's much
+// larger and only mounts behind an explicit nav click.
 const WorkCarousel = lazy(() => import('./features/work/WorkCarousel'));
 
 function shuffle<T>(arr: T[]): T[] {
@@ -125,15 +127,6 @@ function App() {
     return () => clearTimeout(id);
   }, [revealStarted]);
 
-  // Preload the lazy secondary-route chunks once the hero is revealing so
-  // that clicking About/Contact never hits a Suspense fallback (which renders
-  // null → a 0-height frame → a double-jump in the nav transition).
-  useEffect(() => {
-    if (!revealStarted) return;
-    import('./pages/About');
-    import('./pages/Contact');
-  }, [revealStarted]);
-
   const CAROUSEL_EXIT_MS = 380;
 
   const handleClose = useCallback(() => {
@@ -190,13 +183,11 @@ function App() {
       <main className={mainClass}>
         <div className="app__routes" ref={routesRef}>
           <div className="app__routes-inner" ref={routesInnerRef}>
-            <Suspense fallback={null}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-              </Routes>
-            </Suspense>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+            </Routes>
           </div>
           <NavMenu
             open={navOpen}
