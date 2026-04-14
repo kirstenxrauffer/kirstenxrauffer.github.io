@@ -56,7 +56,7 @@ function Home() {
       </Helmet>
       <h1>
         <WaveText as="span" variant="scatter" text="hi, i'm " delay={0} />
-        <ScatterCycle words={['kirsten.', 'k.k.', 'kirbs', 'kir', 'kirby']} />
+        <ScatterCycle words={['kirsten', 'k.k.', 'kirbs', 'kir', 'kirby']} />
       </h1>
       <WaveText as="p" variant="drift" text="i'm a full-stack engineer" delay={GAP} />
       <WaveText as="p" variant="drift" text="who loves the intersection" delay={GAP * 2} />
