@@ -34,7 +34,7 @@ export const N_PRE_BLUR = 3;
 // organic fBm-warped boundary visible on the edges.  At 0.9 the ring sits at
 // front ≈ 0.73, which lands on the visible screen edges (not off-screen).
 // ---------------------------------------------------------------------------
-export const REVEAL_DURATION = 12;
+export const REVEAL_DURATION = 15;
 export const REVEAL_PROGRESS_TARGET = .65;
 
 // ---------------------------------------------------------------------------

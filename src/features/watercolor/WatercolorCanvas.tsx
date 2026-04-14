@@ -184,7 +184,7 @@ export default function WatercolorCanvas({
     const clearObj = { value: 0 };
     gsap.to(clearObj, {
       value: 1.0,
-      duration: 1.5,
+      duration: 4,
       ease: 'power2.out',
       onUpdate: () => { passUniforms.uClearProgress.value = clearObj.value; },
       onComplete: startRevealTween,
