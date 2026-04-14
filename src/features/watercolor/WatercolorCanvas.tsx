@@ -5,6 +5,7 @@ import passthroughVert from '../../shaders/passthrough.vert';
 import warpFrag from '../../shaders/watercolor_warp.frag';
 import watercolorFrag from '../../shaders/watercolor.frag';
 import blurFrag from '../../shaders/watercolor_blur.frag';
+import sourceBlurFrag from '../../shaders/watercolor_source_blur.frag';
 import { N_PRE_BLUR, REVEAL_DURATION, REVEAL_PROGRESS_TARGET, UNIFORM_DEFAULTS } from './constants';
 import { pickHeroImage, slugToSeed, extractPalette } from './utils';
 import type { WatercolorCanvasProps } from './types';
@@ -118,6 +119,23 @@ export default function WatercolorCanvas({
     const blurScene = new THREE.Scene();
     blurScene.add(new THREE.Mesh(quadGeo, blurMat));
 
+    // Gaussian source softener — one-shot pass before the Kuwahara chain.
+    // Smooths source-pixel quantization so Kuwahara sector means don't
+    // stair-step on high-contrast silhouettes on high-DPI displays.
+    const sourceBlurUniforms = {
+      uColor:      { value: paperTex as THREE.Texture },
+      uResolution: { value: new THREE.Vector2(w, h) },
+    };
+    const sourceBlurMat = new THREE.ShaderMaterial({
+      vertexShader:   passthroughVert,
+      fragmentShader: sourceBlurFrag,
+      uniforms:       sourceBlurUniforms,
+      depthWrite:     false,
+      depthTest:      false,
+    });
+    const sourceBlurScene = new THREE.Scene();
+    sourceBlurScene.add(new THREE.Mesh(quadGeo, sourceBlurMat));
+
     // ---- Pass B — composite uniforms --------------------------------------
     const D = UNIFORM_DEFAULTS;
     const passUniforms = {
@@ -205,9 +223,16 @@ export default function WatercolorCanvas({
         renderer.setRenderTarget(null);
         frozenTime = snapTime;
 
-        let src: THREE.Texture = tex;
+        // Pass 0: Gaussian softener → preBlurRTs[0]
+        sourceBlurUniforms.uColor.value = tex;
+        renderer.setRenderTarget(preBlurRTs[0]);
+        renderer.render(sourceBlurScene, camera);
+        let src: THREE.Texture = preBlurRTs[0].texture;
+
+        // Passes 1..N_PRE_BLUR: Kuwahara ping-pong, offset so first write
+        // lands in slot 1 (not the Gaussian output we're reading from).
         for (let i = 0; i < N_PRE_BLUR; i++) {
-          const dst = preBlurRTs[i % 2];
+          const dst = preBlurRTs[(i + 1) % 2];
           blurUniforms.uColor.value = src;
           renderer.setRenderTarget(dst);
           renderer.render(blurScene, camera);
@@ -275,6 +300,7 @@ export default function WatercolorCanvas({
         warpUniforms.uResolution.value.set(rw, rh);
         passUniforms.uResolution.value.set(rw, rh);
         blurUniforms.uResolution.value.set(rw, rh);
+        sourceBlurUniforms.uResolution.value.set(rw, rh);
         petalScene.resize(rw, rh);
 
         // warpRT was cleared by setSize — re-render it at the same frozen time.
@@ -289,9 +315,13 @@ export default function WatercolorCanvas({
         // If the hero image has already loaded, re-run the blur pre-pass at the
         // new resolution and update the composite pass source texture.
         if (colorTex.image) {
-          let src: THREE.Texture = colorTex;
+          sourceBlurUniforms.uColor.value = colorTex;
+          renderer.setRenderTarget(preBlurRTs[0]);
+          renderer.render(sourceBlurScene, camera);
+          let src: THREE.Texture = preBlurRTs[0].texture;
+
           for (let i = 0; i < N_PRE_BLUR; i++) {
-            const dst = preBlurRTs[i % 2];
+            const dst = preBlurRTs[(i + 1) % 2];
             blurUniforms.uColor.value = src;
             renderer.setRenderTarget(dst);
             renderer.render(blurScene, camera);
@@ -333,6 +363,7 @@ export default function WatercolorCanvas({
       preBlurRTs[1].dispose();
       warpMat.dispose();
       blurMat.dispose();
+      sourceBlurMat.dispose();
       passMat.dispose();
       quadGeo.dispose();
       colorTex.dispose();

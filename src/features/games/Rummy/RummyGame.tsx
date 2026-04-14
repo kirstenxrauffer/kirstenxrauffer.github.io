@@ -11,6 +11,7 @@ import {
   naviChooseDraw,
   naviChooseDiscard,
   naviChooseKnock,
+  naviChooseKnockMatch,
   type RummyState,
   type Meld,
 } from './rummyLogic';
@@ -23,20 +24,32 @@ import { DEV_AUTOPLAY } from '../devAutoplay';
 const NAVI_DRAW_DELAY = 900;
 const NAVI_DISCARD_DELAY = 1100;
 
+// First player to reach this cumulative score across rounds wins the match.
+const TARGET_SCORE = 75;
+
 export default function RummyGame({ onEnd, onClose }: GameProps) {
   const initial = useMemo<RummyState>(() => dealInitial(shuffle(makeDeck())), []);
   const [state, setState] = useState<RummyState>(initial);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [message, setMessage] = useState<string>(
-    'draw from the stock or the discard pile to start',
-  );
+  const [message, setMessage] = useState<string>('');
+  const [showStartHint, setShowStartHint] = useState(true);
   // naviFlash: the id navi just picked up / discarded, for a brief highlight.
   const [naviFlashId, setNaviFlashId] = useState<number | null>(null);
   // DEV_AUTOPLAY — remove this line and the effect + button below to strip sim
   const [autoSim, setAutoSim] = useState(false);
+  void setAutoSim;
+
+  // Cumulative points across rounds; first to TARGET_SCORE wins the match.
+  const [score, setScore] = useState({ player: 0, navi: 0 });
+  const matchOver = score.player >= TARGET_SCORE || score.navi >= TARGET_SCORE;
 
   const stateRef = useRef<RummyState>(initial);
   useEffect(() => { stateRef.current = state; }, [state]);
+  const scoreRef = useRef(score);
+  useEffect(() => { scoreRef.current = score; }, [score]);
+  // Guards the round-over effect so we only tally the score + notify onEnd
+  // once per outcome (the effect re-runs whenever score changes).
+  const processedOutcomeRef = useRef<RummyState['outcome']>(null);
 
   // Fresh watercolor back for every new game session.
   useEffect(() => { newCardBackSession(); }, []);
@@ -77,25 +90,45 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
   // ── Finish detection ────────────────────────────────────────────────────────
   useEffect(() => {
     if (state.phase !== 'gameover' || !state.outcome) return;
+    if (processedOutcomeRef.current === state.outcome) return;
+    processedOutcomeRef.current = state.outcome;
+
     const o = state.outcome;
-    if (o.winner === 'player') {
-      setMessage(
-        o.knocker === 'player'
-          ? (o.wasGin ? `gin! you win by ${o.points}` : `you knocked for ${o.points}`)
-          : `undercut! you win by ${o.points}`,
-      );
-      onEnd('lose'); // from navi's perspective
-    } else if (o.winner === 'navi') {
-      setMessage(
-        o.knocker === 'navi'
-          ? (o.wasGin ? `navi got gin — +${o.points}` : `navi knocked — +${o.points}`)
-          : `undercut! navi wins by ${o.points}`,
-      );
-      onEnd('win');
+    const roundMsg =
+      o.winner === 'player'
+        ? (o.knocker === 'player'
+            ? (o.wasGin ? `gin! +${o.points}` : `you knocked for ${o.points}`)
+            : `undercut! +${o.points}`)
+        : o.winner === 'navi'
+        ? (o.knocker === 'navi'
+            ? (o.wasGin ? `navi got gin — +${o.points}` : `navi knocked — +${o.points}`)
+            : `undercut! navi +${o.points}`)
+        : 'stock empty — round drawn';
+
+    const nextScore = {
+      player: scoreRef.current.player + (o.winner === 'player' ? o.points : 0),
+      navi:   scoreRef.current.navi   + (o.winner === 'navi'   ? o.points : 0),
+    };
+    setScore(nextScore);
+
+    const matchEnded = nextScore.player >= TARGET_SCORE || nextScore.navi >= TARGET_SCORE;
+    if (matchEnded) {
+      const winnerLabel = nextScore.player > nextScore.navi ? 'you win' : 'navi wins';
+      setMessage(`${roundMsg} · match: ${winnerLabel} ${nextScore.player}–${nextScore.navi}`);
+      onEnd(nextScore.navi > nextScore.player ? 'win' : 'lose'); // navi's perspective
     } else {
-      setMessage('stock empty — round drawn');
+      setMessage(`${roundMsg} · score: you ${nextScore.player}, navi ${nextScore.navi}`);
     }
   }, [state.phase, state.outcome, onEnd]);
+
+  const handleNextRound = useCallback(() => {
+    processedOutcomeRef.current = null;
+    setState(dealInitial(shuffle(makeDeck())));
+    setSelectedId(null);
+    setNaviFlashId(null);
+    setMessage('');
+    setShowStartHint(true);
+  }, []);
 
   // ── Navi's automated turn ──────────────────────────────────────────────────
   useEffect(() => {
@@ -117,7 +150,12 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
           // Stock exhausted etc — state already updated for draw-source 'stock'
         }
       } else if (s.phase === 'discard') {
-        const knockId = naviChooseKnock(s);
+        const knockId = naviChooseKnockMatch(
+          s,
+          scoreRef.current.navi,
+          scoreRef.current.player,
+          TARGET_SCORE,
+        );
         if (knockId != null) {
           setNaviFlashId(knockId);
           setMessage('navi is knocking…');
@@ -178,6 +216,7 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
     if (state.turn !== 'player' || state.phase !== 'draw') return;
     setState(draw(state, 'player', 'stock'));
     setMessage('now pick a card to discard');
+    setShowStartHint(false);
   }, [state]);
 
   const handleDrawDiscard = useCallback(() => {
@@ -185,6 +224,7 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
     if (state.discard.length === 0) return;
     setState(draw(state, 'player', 'discard'));
     setMessage('now pick a card to discard');
+    setShowStartHint(false);
   }, [state]);
 
   const handleSelectCard = useCallback((id: number) => {
@@ -229,7 +269,13 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
       onClick={(e) => e.stopPropagation()}
     >
       <div className={styles['rummy__header']}>
-        <div className={styles['rummy__title']}>Gin Rummy</div>
+        <div className={styles['rummy__heading']}>
+          <div className={styles['rummy__title']}>Gin Rummy</div>
+          <div className={styles['rummy__score']} aria-label="match score">
+            you <strong>{score.player}</strong> · navi <strong>{score.navi}</strong>
+            <span className={styles['rummy__score-target']}> · first to {TARGET_SCORE}</span>
+          </div>
+        </div>
         <button type="button" className={styles['rummy__close']} onClick={onClose} aria-label="Close">×</button>
       </div>
 
@@ -254,6 +300,14 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
       <div className={styles['rummy__middle']}>
         <div className={styles['rummy__message']}>{message}</div>
         <div className={styles['rummy__piles']}>
+          {showStartHint && state.turn === 'player' && state.phase === 'draw' && !gameOver && (
+            <div className={styles['rummy__hint']} aria-hidden="true">
+              <div className={styles['rummy__hint-text']}>
+                draw from the stock or the discard pile
+              </div>
+              <div className={styles['rummy__hint-arrow']} />
+            </div>
+          )}
           <button
             type="button"
             className={styles['rummy__pile-btn']}
@@ -327,6 +381,7 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
         </div>
 
         <div className={styles['rummy__actions']}>
+          {/* DEV sim button — uncomment for autoplay debugging.
           {DEV_AUTOPLAY && (
             <button
               type="button"
@@ -336,6 +391,7 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
               {autoSim ? 'sim ■' : 'sim ▶'}
             </button>
           )}
+          */}
           <button
             type="button"
             className={styles['rummy__action']}
@@ -359,7 +415,9 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
       {gameOver && state.outcome && (
         <div className={styles['rummy__reveal']} onClick={(e) => e.stopPropagation()}>
           <div className={styles['rummy__reveal-title']}>
-            {state.outcome.wasGin
+            {matchOver
+              ? (score.player > score.navi ? 'you win the match!' : 'navi wins the match')
+              : state.outcome.wasGin
               ? (state.outcome.knocker === 'player' ? 'gin!' : 'navi got gin')
               : state.outcome.winner === 'draw'
               ? 'round drawn'
@@ -368,9 +426,20 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
           <MeldingView label="your melds"  melding={state.outcome.playerMelding} />
           <MeldingView label="navi's melds" melding={state.outcome.naviMelding} />
           <div className={styles['rummy__reveal-score']}>{message}</div>
-          <button type="button" className={styles['rummy__action']} onClick={onClose}>
-            close
-          </button>
+          {matchOver ? (
+            <button type="button" className={styles['rummy__action']} onClick={onClose}>
+              close
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`${styles['rummy__action']} ${styles['rummy__action--knock']}`}
+              onClick={handleNextRound}
+              autoFocus
+            >
+              next round
+            </button>
+          )}
         </div>
       )}
     </div>

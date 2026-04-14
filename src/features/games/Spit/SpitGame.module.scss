@@ -206,19 +206,40 @@
     justify-self: center;
   }
 
+  // Pill label under each spit reserve. Matches the owner-tinted pill
+  // look of &__row[data-owner=...] so the spit count reads as part of the
+  // side's territory.
   &__spit-count {
     position: absolute;
-    bottom: -1.1rem;
+    bottom: -1.8rem;
     left: 50%;
     transform: translateX(-50%);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
     font-size: 0.7rem;
-    opacity: 0.7;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
+    text-transform: lowercase;
+    opacity: 0.85;
+    white-space: nowrap;
+
+    &[data-owner='navi'] {
+      background: rgba(255, 200, 110, 0.05);
+      border-color: rgba(255, 200, 110, 0.16);
+    }
+    &[data-owner='player'] {
+      background: rgba(200, 150, 255, 0.06);
+      border-color: rgba(200, 150, 255, 0.2);
+    }
   }
 
-  &__center-controls {
-    display: flex;
-    justify-content: center;
+  &__spit-count-num {
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    opacity: 0.6;
   }
 
   &__center {
@@ -335,9 +356,6 @@
         background: linear-gradient(135deg, #c598f0 0%, #9a6cdc 100%);
       }
     }
-
-    // Spit button rendered in the footer on mobile only (hidden on desktop).
-    &--mobile-spit { display: none; }
 
     // DEV sim toggle
     &--sim {
@@ -485,11 +503,7 @@
   // Tighten center gap so 4 items fit without overflow on narrow screens.
   .spit__center { gap: 0.5rem; }
 
-  // Move spit button from center to footer on mobile.
-  .spit__center-controls { display: none; }
-  .spit__action--mobile-spit { display: inline-block; }
-
-  // Shrink cards from 75×100 → 50×75 on mobile.
+// Shrink cards from 75×100 → 50×75 on mobile.
   .card {
     width: 50px;
     height: 75px;

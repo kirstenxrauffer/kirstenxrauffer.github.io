@@ -7,7 +7,7 @@ import {
   applySpit,
   applySlap,
   applyFillEmpty,
-  canFillEmpty,
+  canProductiveFill,
   deadlockWinner,
   isDeadlock,
   canSpit,
@@ -87,6 +87,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   const [slapperSide, setSlapperSide] = useState<'player' | 'navi' | null>(null);
   // DEV_AUTOPLAY — remove this line and the effect + button below to strip sim
   const [autoSim, setAutoSim] = useState(false);
+  void setAutoSim;
 
   // Refs mirror state for the navi timer so it sees live data each tick
   // without re-scheduling on every React render.
@@ -334,8 +335,10 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
 
       // Priority 1: fill any empty slots before playing to centre. More exposed
       // tops means more legal plays available on the next tick.
+      // Guarded by canProductiveFill (source pile has >1 cards) — a source of
+      // size 1 just relocates the empty slot and would ping-pong forever.
       const emptyIdx = s.navi.stockpiles.findIndex((p) => p.length === 0);
-      if (emptyIdx >= 0 && canFillEmpty(s.navi)) {
+      if (emptyIdx >= 0 && canProductiveFill(s.navi)) {
         const sourceIdx = pickFillSource(s.navi, emptyIdx);
         if (sourceIdx != null) {
           const nextNavi = applyFillEmpty(s.navi, sourceIdx, emptyIdx);
@@ -487,25 +490,16 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
           interactive={false}
         />
 
-        {phase !== 'idle' && (
-          <div className={styles['spit__center-controls']}>
-            <button
-              type="button"
-              className={styles['spit__action']}
-              onClick={handleSpit}
-              disabled={!spitAvailable}
-            >
-              spit!
-            </button>
-          </div>
-        )}
-
         <div
           className={styles['spit__center']}
           data-slap={phase === 'slap' && slapperSide === 'player' ? 'true' : 'false'}
         >
-          <div className={styles['spit__spit']} aria-label="navi spit reserve">
-            {state.navi.spit.length > 0 ? <CardBack /> : <EmptySlot label="spit" />}
+          <div className={styles['spit__spit']} aria-label="navi spit reserve" data-owner="navi">
+            {state.navi.spit.length > 0 ? <CardBack /> : <EmptySlot label="—" />}
+            <div className={styles['spit__spit-count']} data-owner="navi">
+              spit
+              <span className={styles['spit__spit-count-num']}>{state.navi.spit.length}</span>
+            </div>
           </div>
           <CenterPile
             pile={state.center[0]}
@@ -521,8 +515,12 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
             slappable={phase === 'slap' && slapperSide === 'player'}
             onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(1) : undefined}
           />
-          <div className={styles['spit__spit']} aria-label="player spit reserve">
-            {state.player.spit.length > 0 ? <CardBack /> : <EmptySlot label="spit" />}
+          <div className={styles['spit__spit']} aria-label="player spit reserve" data-owner="player">
+            {state.player.spit.length > 0 ? <CardBack /> : <EmptySlot label="—" />}
+            <div className={styles['spit__spit-count']} data-owner="player">
+              spit
+              <span className={styles['spit__spit-count-num']}>{state.player.spit.length}</span>
+            </div>
           </div>
         </div>
 
@@ -545,6 +543,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       <div className={styles['spit__footer']}>
         <div className={styles['spit__message']}>{message || '\u00a0'}</div>
         <div className={styles['spit__actions']}>
+          {/* DEV sim button — uncomment for autoplay debugging.
           {DEV_AUTOPLAY && (
             <button
               type="button"
@@ -554,6 +553,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
               {autoSim ? 'sim ■' : 'sim ▶'}
             </button>
           )}
+          */}
           {phase === 'idle' && (
             <button
               type="button"
@@ -567,7 +567,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
           {phase !== 'idle' && (
             <button
               type="button"
-              className={`${styles['spit__action']} ${styles['spit__action--mobile-spit']}`}
+              className={styles['spit__action']}
               onClick={handleSpit}
               disabled={!spitAvailable}
             >

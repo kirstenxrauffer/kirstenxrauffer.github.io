@@ -388,6 +388,40 @@ function chooseKnockFromHand(hand: Card[]): number | null {
   return null;
 }
 
+/**
+ * Match-aware knock policy. Points across rounds accumulate toward a target
+ * (default 75). Strategy shifts with match state:
+ *   • Gin (deadwood 0) is always taken — +25 bonus is too big to pass up.
+ *   • Danger zone — opponent within 15 points of the target and ahead of us in
+ *     "distance-to-win". An undercut here hands them +25 plus our deadwood and
+ *     likely the match, so only knock with very thin deadwood (≤4) where the
+ *     undercut risk is lowest.
+ *   • Otherwise — knock whenever legal (same as the single-round policy).
+ */
+function chooseKnockFromHandContextual(
+  hand: Card[],
+  ownScore: number,
+  oppScore: number,
+  target: number,
+): number | null {
+  let bestIdx = -1;
+  let bestDw = Infinity;
+  for (let i = 0; i < hand.length; i++) {
+    const rest = hand.filter((_, j) => j !== i);
+    const dw = bestMelding(rest).deadwoodValue;
+    if (dw < bestDw) { bestDw = dw; bestIdx = i; }
+  }
+  if (bestIdx < 0) return null;
+  if (bestDw === 0) return hand[bestIdx].id;
+  if (bestDw > 10) return null;
+  const oppNeeds = target - oppScore;
+  const ownNeeds = target - ownScore;
+  if (oppNeeds <= 15 && oppNeeds < ownNeeds) {
+    return bestDw <= 4 ? hand[bestIdx].id : null;
+  }
+  return hand[bestIdx].id;
+}
+
 // ─── AI (per-side public API) ─────────────────────────────────────────────────
 
 export function naviChooseDraw(state: RummyState): DrawSource {
@@ -398,6 +432,14 @@ export function naviChooseDiscard(state: RummyState): number {
 }
 export function naviChooseKnock(state: RummyState): number | null {
   return chooseKnockFromHand(state.navi);
+}
+export function naviChooseKnockMatch(
+  state: RummyState,
+  naviScore: number,
+  playerScore: number,
+  target: number,
+): number | null {
+  return chooseKnockFromHandContextual(state.navi, naviScore, playerScore, target);
 }
 
 /** Same decisions applied to the player's hand — used by the autoSim. */

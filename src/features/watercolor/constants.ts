@@ -3,7 +3,6 @@
 // Paths are relative to publicDir (assets/ → served at /).
 // ---------------------------------------------------------------------------
 export const HERO_IMAGES = [
-  '/images/IMG_0005.jpg',
   '/images/IMG_1567.jpg',
   '/images/IMG_1941.jpg',
   '/images/IMG_2406.jpg',

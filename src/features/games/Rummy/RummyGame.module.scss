@@ -33,7 +33,31 @@
     font-weight: 300;
   }
 
+  &__heading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  &__score {
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
+    white-space: nowrap;
+    strong { font-weight: 600; }
+  }
+
+  &__score-target {
+    opacity: 0.6;
+    font-style: italic;
+  }
+
   &__close {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 9999;
     background: rgba(255, 255, 255, 0.08);
     border: none;
     color: inherit;
@@ -94,8 +118,47 @@
   }
 
   &__piles {
+    position: relative;
     display: flex;
     gap: 1.1rem;
+  }
+
+  // Floating start-hint — mirrors War's hint pill so the onboarding voice
+  // matches across games. Anchored above the stock/discard piles and bounces
+  // its arrow toward them until the player makes a move.
+  &__hint {
+    position: absolute;
+    top: -2.9rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    animation: rummy-hint-in 320ms ease both;
+    z-index: 10;
+  }
+
+  &__hint-text {
+    background: rgba(210, 170, 240, 1);
+    color: #2d103d;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.7rem;
+    border-radius: 0.9rem;
+    white-space: nowrap;
+    margin-bottom: 0.25rem;
+    font-family: inherit;
+    font-weight: 500;
+  }
+
+  &__hint-arrow {
+    width: 0;
+    height: 0;
+    border-left: 0.35rem solid transparent;
+    border-right: 0.35rem solid transparent;
+    border-top: 0.45rem solid rgba(210, 170, 240, 1);
+    animation: rummy-hint-bounce 0.85s ease-in-out infinite;
   }
 
   &__pile-btn {
@@ -408,6 +471,16 @@
 
 // Newly-drawn card slides in from the right (toward the stock/discard piles
 // it came from) and settles.
+@keyframes rummy-hint-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes rummy-hint-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
 @keyframes rummy-new-card-in {
   from { opacity: 0; transform: translate(22px, -6px); }
   to   { opacity: 1; transform: translate(0, 0); }

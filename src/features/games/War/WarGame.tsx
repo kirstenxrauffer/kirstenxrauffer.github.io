@@ -81,6 +81,7 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
   const [travelers, setTravelers] = useState<Traveler[]>([]);
   // DEV_AUTOPLAY — remove this line and the effect + button below to strip sim
   const [autoSim, setAutoSim] = useState(false);
+  void setAutoSim;
 
   // Fresh watercolor back for every new game session.
   useEffect(() => { newCardBackSession(); }, []);
@@ -378,6 +379,7 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
       </div>
 
       <div className={styles['war__footer']}>
+        {/* DEV sim button — uncomment for autoplay debugging.
         {DEV_AUTOPLAY && (
           <button
             type="button"
@@ -387,6 +389,7 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
             {autoSim ? 'sim ■' : 'sim ▶'}
           </button>
         )}
+        */}
         <button
           type="button"
           className={styles['war__action']}
