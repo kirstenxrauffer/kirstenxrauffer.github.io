@@ -15,78 +15,56 @@ interface StickyNoteProps {
 const DIVIDER_W = 145;
 const DIVIDER_H = 12;
 
-const HOVER_DELAY_MS = 250;
 // Movement past this many CSS pixels during a press counts as a drag,
-// not a tap — so the touch-tap grow effect won't fire.
+// not a tap — so the tap-to-grow effect won't fire.
 const DRAG_THRESHOLD_PX = 6;
 
 export function StickyNote({ title, palette, rotation, children }: StickyNoteProps) {
   const [pos, setPos]         = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [hoverReady, setHoverReady] = useState(false);
+  const [grown, setGrown] = useState(false);
   const lastPos = useRef({ x: 0, y: 0 });
   const downPos = useRef({ x: 0, y: 0 });
   const draggedRef = useRef(false);
-  const pointerTypeRef = useRef<string>('mouse');
-  const tapHeldRef = useRef(false);
-  const hoverTimer = useRef<number | null>(null);
   const noteRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [fontSize, setFontSize] = useState<number>(0.58);
 
-  const clearHoverTimer = useCallback(() => {
-    if (hoverTimer.current !== null) {
-      window.clearTimeout(hoverTimer.current);
-      hoverTimer.current = null;
-    }
-  }, []);
-
-  useEffect(() => clearHoverTimer, [clearHoverTimer]);
-
-  // When the grow effect was activated by a tap (touch), dismiss it on the
-  // next pointerdown anywhere outside this note.
+  // Shrink content font-size until it fits the fixed-height note (no overflow).
   useEffect(() => {
-    if (!hoverReady || !tapHeldRef.current) return;
+    const el = contentRef.current;
+    if (!el) return;
+    let size = 0.58;
+    const min = 0.36;
+    const step = 0.02;
+    el.style.fontSize = `${size}rem`;
+    while (el.scrollHeight > el.clientHeight && size > min) {
+      size -= step;
+      el.style.fontSize = `${size}rem`;
+    }
+    setFontSize(size);
+  }, [children]);
+
+  // Dismiss grown state on pointerdown anywhere outside this note.
+  useEffect(() => {
+    if (!grown) return;
     const onDocPointerDown = (e: PointerEvent) => {
       if (noteRef.current && !noteRef.current.contains(e.target as Node)) {
-        tapHeldRef.current = false;
-        setHoverReady(false);
+        setGrown(false);
       }
     };
     document.addEventListener('pointerdown', onDocPointerDown);
     return () => document.removeEventListener('pointerdown', onDocPointerDown);
-  }, [hoverReady]);
-
-  const onPointerEnter = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    // Dwell-to-grow is a mouse/pen interaction; touch uses tap-end instead.
-    if (e.pointerType === 'touch') return;
-    clearHoverTimer();
-    hoverTimer.current = window.setTimeout(() => {
-      setHoverReady(true);
-      hoverTimer.current = null;
-    }, HOVER_DELAY_MS);
-  }, [clearHoverTimer]);
-
-  const onPointerLeave = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'touch') return;
-    clearHoverTimer();
-    setHoverReady(false);
-  }, [clearHoverTimer]);
+  }, [grown]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    clearHoverTimer();
-    // For touch, don't reset hoverReady here — onPointerUp toggles it, and
-    // resetting first would cause !false=true on up, preventing shrink.
-    if (e.pointerType !== 'touch') {
-      setHoverReady(false);
-    }
-    tapHeldRef.current = false;
     setIsDragging(true);
-    pointerTypeRef.current = e.pointerType;
     draggedRef.current = false;
     downPos.current = { x: e.clientX, y: e.clientY };
     lastPos.current = { x: e.clientX, y: e.clientY };
     e.currentTarget.setPointerCapture(e.pointerId);
     e.preventDefault();
-  }, [clearHoverTimer]);
+  }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
@@ -106,20 +84,15 @@ export function StickyNote({ title, palette, rotation, children }: StickyNotePro
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     setIsDragging(false);
     e.currentTarget.releasePointerCapture(e.pointerId);
-    if (pointerTypeRef.current === 'touch' && !draggedRef.current) {
-      // Tap (no drag) on touch → toggle the grow effect on tap end.
-      setHoverReady(prev => {
-        const next = !prev;
-        tapHeldRef.current = next;
-        return next;
-      });
+    if (!draggedRef.current) {
+      setGrown(prev => !prev);
     }
   }, []);
 
   const className = [
     styles.note,
     isDragging && styles.dragging,
-    hoverReady && !isDragging && styles.hoverReady,
+    grown && !isDragging && styles.hoverReady,
   ].filter(Boolean).join(' ');
 
   return (
@@ -133,8 +106,6 @@ export function StickyNote({ title, palette, rotation, children }: StickyNotePro
         '--sny': `${pos.y}px`,
         '--snr': `${rotation}deg`,
       } as React.CSSProperties}
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -146,7 +117,13 @@ export function StickyNote({ title, palette, rotation, children }: StickyNotePro
           <StickyDivider width={DIVIDER_W} height={DIVIDER_H} color={palette.divider} />
         </>
       )}
-      <div className={styles.content}>{children}</div>
+      <div
+        ref={contentRef}
+        className={styles.content}
+        style={{ '--sn-font-size': `${fontSize}rem` } as React.CSSProperties}
+      >
+        {children}
+      </div>
     </div>
   );
 }

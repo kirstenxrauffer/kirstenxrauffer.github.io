@@ -23,6 +23,55 @@ export interface CompanyWork {
   projects: ProjectAssets[];
 }
 
+// External press, blog posts, and demos referencing Kirsten's work.
+// Consumed by the Home page JSON-LD (`subjectOf`) so Google's entity graph
+// can connect this Person to authoritative mentions of her projects.
+export interface PressReference {
+  headline: string;
+  url: string;
+  publisher: string;
+  type: 'Article' | 'VideoObject' | 'BlogPosting';
+}
+
+export const PRESS_REFERENCES: PressReference[] = [
+  {
+    headline: 'Super Reactions Make Emoji Burst to Life — Discord Nitro',
+    url: 'https://discord.com/blog/super-reactions-make-emoji-burst-to-life-discord-nitro',
+    publisher: 'Discord',
+    type: 'BlogPosting',
+  },
+  {
+    headline: 'Super Reactions — Official Demo',
+    url: 'https://youtube.com/watch?v=IIRLMV9SZds',
+    publisher: 'Discord',
+    type: 'VideoObject',
+  },
+  {
+    headline: 'How to Use Voice Channel Reactions on Desktop',
+    url: 'https://adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/',
+    publisher: 'Adweek',
+    type: 'Article',
+  },
+  {
+    headline: 'How to Use the Discord Soundboard',
+    url: 'https://discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds',
+    publisher: 'Discord',
+    type: 'BlogPosting',
+  },
+  {
+    headline: 'Under the Hood: Learning with Documents',
+    url: 'https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents',
+    publisher: 'LinkedIn Engineering',
+    type: 'BlogPosting',
+  },
+  {
+    headline: 'Introducing Skills Path',
+    url: 'https://linkedin.com/business/talent/blog/product-tips/introducing-skills-path',
+    publisher: 'LinkedIn',
+    type: 'BlogPosting',
+  },
+];
+
 export const WORK_MANIFEST: CompanyWork[] = [
   {
     slug: 'discord',

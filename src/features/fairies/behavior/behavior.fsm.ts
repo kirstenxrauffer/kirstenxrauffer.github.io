@@ -265,7 +265,19 @@ function tickNavOrbit(fairy: Fairy, dt: number): void {
   const targetY = cy + Math.sin(fsm.orbitAngle) * NAV_ORBIT_RADIUS;
   const dx = targetX - fairy.pos.x;
   const dy = targetY - fairy.pos.y;
-  if (dx * dx + dy * dy > 0.25) fairy.heading = Math.atan2(dy, dx);
+  // Smooth-steer instead of snapping: during travel the centre moves AND
+  // orbitAngle keeps advancing, so the raw target direction swings fast.
+  // Snapping heading to it every frame read as jitter; damping toward the
+  // target angle produces a smooth arc. Rate must exceed NAV_ORBIT_ANG_SPEED
+  // (2.6 rad/s) so navi can keep up with the rotating ring — otherwise she
+  // lags and spirals out. 10 rad/s is a stiff filter: visibly smooth but
+  // still tracks the tangent without falling behind.
+  if (dx * dx + dy * dy > 0.25) {
+    const desired = Math.atan2(dy, dx);
+    const diff = angleDiff(desired, fairy.heading);
+    const maxStep = 10 * dt;
+    fairy.heading += Math.max(-maxStep, Math.min(maxStep, diff));
+  }
 
   // Tangential orbit speed (ω·r) plus centre-translation speed during travel
   // so navi keeps up with the moving target without falling behind the ring.

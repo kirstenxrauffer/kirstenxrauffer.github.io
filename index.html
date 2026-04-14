@@ -22,18 +22,8 @@
     <meta name="twitter:description" content="Full-stack engineer at the intersection of art and code. Portfolio of work from Discord, LinkedIn, Grainger, Ulta, and more." />
     <meta name="twitter:image" content="https://kirstenrauffer.com/og-image.png" />
 
-    <!-- JSON-LD: Person -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Person",
-      "name": "Kirsten Rauffer",
-      "jobTitle": "Full-Stack Engineer",
-      "url": "https://kirstenrauffer.com",
-      "description": "Full-stack engineer at the intersection of art and code. Worked at Discord, LinkedIn, Grainger, Ulta, Microsoft, and Roche.",
-      "knowsAbout": ["React", "TypeScript", "iOS", "Swift", "Kotlin", "Node.js", "Full-Stack Development", "Design Systems", "Accessibility"]
-    }
-    </script>
+    <!-- JSON-LD Person schema is injected per-page via react-helmet-async
+         (see src/pages/Home.tsx for the rich version with worksFor/subjectOf). -->
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
@@ -43,6 +33,21 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Double&family=Bebas+Neue&family=Erica+One&family=Fredoka:wght@700&display=swap" />
   </head>
   <body>
+    <script>
+      // Companion to /404.html (GitHub Pages SPA redirect). Decodes the
+      // encoded path from the query string and restores it via History
+      // API before React boots, so BrowserRouter sees the real URL.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&');
+          }).join('?');
+          window.history.replaceState(null, null,
+            l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      })(window.location);
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

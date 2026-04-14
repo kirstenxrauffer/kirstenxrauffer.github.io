@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { WaveText } from '../components/WaveText';
 import styles from './About.module.scss';
 
@@ -6,6 +7,20 @@ const GAP = 1.6; // seconds between each line starting
 function About() {
   return (
     <section className={styles.section}>
+      <Helmet>
+        <title>About — Kirsten Rauffer</title>
+        <meta
+          name="description"
+          content="A jersey girl at heart who loves when art and code can't quite tell themselves apart. Get to know Kirsten Rauffer."
+        />
+        <link rel="canonical" href="https://kirstenrauffer.com/about" />
+        <meta property="og:url" content="https://kirstenrauffer.com/about" />
+        <meta property="og:title" content="About — Kirsten Rauffer" />
+        <meta
+          property="og:description"
+          content="A jersey girl at heart who loves when art and code can't quite tell themselves apart."
+        />
+      </Helmet>
       <WaveText as="h1" variant="scatter" text="kirsten rauffer" delay={0} />
       <WaveText as="p" variant="drift" text="a jersey girl at heart." delay={GAP} />
       <WaveText as="p" variant="drift" text="i love buffalo wings and long afternoon naps." delay={GAP * 2} />

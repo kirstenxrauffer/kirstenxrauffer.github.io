@@ -53,8 +53,9 @@
 }
 
 .content {
-  font-size: 0.58rem;
-  line-height: 1.5;
+  font-size: var(--sn-font-size, 0.58rem);
+  line-height: 1.4;
+  text-transform: lowercase;
   // color inherited from parent .note
   flex: 1;
   min-height: 0;
@@ -62,12 +63,6 @@
 
   p {
     margin: 0;
-    // Clamp long descriptions to fit the square
-    display: -webkit-box;
-    -webkit-line-clamp: 12;
-    line-clamp: 12;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 
   ul {

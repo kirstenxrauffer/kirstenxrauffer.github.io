@@ -16,6 +16,7 @@
     "p5.brush": "^2.1.4-beta",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-helmet-async": "^3.0.0",
     "react-router-dom": "^6.27.0",
     "three": "^0.183.2"
   },

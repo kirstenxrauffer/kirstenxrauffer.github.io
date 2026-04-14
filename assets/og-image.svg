@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="watercolor1" cx="30%" cy="35%" r="55%">
+      <stop offset="0%" stop-color="#ffd4c4" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ffd4c4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="watercolor2" cx="75%" cy="70%" r="50%">
+      <stop offset="0%" stop-color="#c4d4ff" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#c4d4ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="watercolor3" cx="60%" cy="20%" r="40%">
+      <stop offset="0%" stop-color="#ffe8a8" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ffe8a8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="paper" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="5"/>
+      <feColorMatrix values="0 0 0 0 0.98  0 0 0 0 0.94  0 0 0 0 0.88  0 0 0 0.08 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="#fbf6ef"/>
+  <rect width="1200" height="630" fill="url(#watercolor1)"/>
+  <rect width="1200" height="630" fill="url(#watercolor2)"/>
+  <rect width="1200" height="630" fill="url(#watercolor3)"/>
+  <rect width="1200" height="630" filter="url(#paper)" opacity="0.5"/>
+
+  <text x="100" y="290"
+        font-family="Gambetta, Georgia, serif"
+        font-size="110"
+        font-weight="500"
+        fill="#2a2a2a"
+        letter-spacing="-2">kirsten rauffer</text>
+
+  <text x="102" y="360"
+        font-family="General Sans, -apple-system, sans-serif"
+        font-size="36"
+        font-weight="400"
+        fill="#5a5a5a"
+        letter-spacing="1">full-stack engineer</text>
+
+  <line x1="100" y1="420" x2="260" y2="420" stroke="#2a2a2a" stroke-width="2" opacity="0.4"/>
+
+  <text x="100" y="475"
+        font-family="General Sans, -apple-system, sans-serif"
+        font-size="24"
+        font-weight="400"
+        fill="#6a6a6a"
+        letter-spacing="0.5">at the intersection of art and code</text>
+
+  <text x="100" y="555"
+        font-family="General Sans, -apple-system, sans-serif"
+        font-size="20"
+        font-weight="500"
+        fill="#888"
+        letter-spacing="2">kirstenrauffer.com</text>
+</svg>

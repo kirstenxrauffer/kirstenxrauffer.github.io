@@ -74,14 +74,21 @@ export function makeSketch(callbacks: SketchCallbacks = {}): (p: p5) => void {
       }
       let anyHovered = false;
       for (const fairy of fairies) {
-        const facingRight = pointer.seen && pointer.x > fairy.pos.x;
-
-        // Smooth wing rotation: lerp wingFlipT toward 0 or 1 each frame.
-        const flipTarget = facingRight ? 1 : 0;
-        fairy.wingFlipT += (flipTarget - fairy.wingFlipT) * Math.min(1, 12 * dt);
-        // Eye size cross-fade uses a separate, slower lerp so the eyes take longer
-        // to swap than the wings — makes the direction change feel more organic.
-        fairy.eyeFlipT  += (flipTarget - fairy.eyeFlipT)  * Math.min(1,  3 * dt);
+        // During navOrbit, freeze facing — orbital velocity.x flips sign twice
+        // per revolution, so pointer-tracking OR velocity-tracking would both
+        // rapidly flap the wings (that was the "jitter near mouse"). Locking
+        // wingFlipT/eyeFlipT at their current values keeps navi oriented while
+        // she circles the buttons.
+        if (fairy.fsm.kind !== 'navOrbit') {
+          const facingRight = pointer.seen && pointer.x > fairy.pos.x;
+          const flipTarget = facingRight ? 1 : 0;
+          // Smooth wing rotation: lerp wingFlipT toward 0 or 1 each frame.
+          fairy.wingFlipT += (flipTarget - fairy.wingFlipT) * Math.min(1, 12 * dt);
+          // Eye size cross-fade uses a separate, slower lerp so the eyes take
+          // longer to swap than the wings — makes the direction change feel
+          // more organic.
+          fairy.eyeFlipT  += (flipTarget - fairy.eyeFlipT)  * Math.min(1,  3 * dt);
+        }
 
         // cos(wingFlipT * π) goes 1 → 0 → -1, compressing the wings like a
         // 3D Y-axis rotation. The x-offset interpolates between the two endpoints.
@@ -92,8 +99,11 @@ export function makeSketch(callbacks: SketchCallbacks = {}): (p: p5) => void {
         const WING_X_RIGHT = -15;  // local units when facing right
         const wingXShift = WING_X_LEFT + fairy.wingFlipT * (WING_X_RIGHT - WING_X_LEFT);
 
-        // Hover: pointer within 80 px of the fairy's world centre.
-        const hoverDist = pointer.seen
+        // Hover: pointer within 80 px of the fairy's world centre. Disabled during
+        // navOrbit — while circling the nav buttons navi ignores the pointer so it
+        // doesn't jitter (hoverT ramp drives a scale/glow pulse) or re-trigger the
+        // click-to-close path when the cursor drifts over the orbit ring.
+        const hoverDist = (pointer.seen && fairy.fsm.kind !== 'navOrbit')
           ? Math.hypot(pointer.x - fairy.pos.x, pointer.y - fairy.pos.y)
           : Infinity;
         // Ramp hoverT linearly (300 ms) so hover effects never jump abruptly.
