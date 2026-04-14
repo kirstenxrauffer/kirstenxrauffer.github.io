@@ -25,9 +25,18 @@
   // Grown state driven by .hoverReady class alone (no :hover) so touch gets
   // the same CSS transition on both grow and shrink.
   &.hoverReady {
-    box-shadow: 14px 14px 20px rgba(0, 0, 0, 0.55);
-    transform: translate(var(--snx, 0px), var(--sny, 0px)) rotate(var(--snr, 0deg)) scale(1.5);
+    box-shadow: 18px 18px 26px rgba(0, 0, 0, 0.55);
+    transform: translate(var(--snx, 0px), var(--sny, 0px)) rotate(var(--snr, 0deg)) scale(1.9);
     z-index: 999;
+  }
+
+  // Hover grow only on devices that actually hover — avoids sticky hover on touch.
+  @media (hover: hover) {
+    &:hover:not(.dragging):not(.hoverReady) {
+      box-shadow: 18px 18px 26px rgba(0, 0, 0, 0.55);
+      transform: translate(var(--snx, 0px), var(--sny, 0px)) rotate(var(--snr, 0deg)) scale(1.9);
+      z-index: 999;
+    }
   }
 }
 
@@ -76,5 +85,10 @@
 
   li::before {
     content: '– ';
+  }
+
+  a {
+    color: #000;
+    text-decoration: underline;
   }
 }

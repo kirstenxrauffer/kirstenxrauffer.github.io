@@ -162,7 +162,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'digital-asset-management',
         label: 'rich content',
-        description: 'Full-stack engineer on the rich content team, supporting Grainger\'s millions of products and all their supporting materials, both static and dynamic: product images, compliance documents like Energy Guides, 2D and 3D CAD files, videos, copy, and more. Sole engineer to decouple the frontend codebase from a massive monorepo, converting it to a microfrontend, paving the way for other engineering teams. Currently improving search and upload UX across all asset types, and building an ML classification pipeline using AWS tooling. The internal system is proprietary.',
+        description: 'Full-stack engineer on the rich content team, supporting Grainger\'s millions of products and all their supporting materials, both static and dynamic: product images, compliance documents like Energy Guides, 2D and 3D CAD files, videos, copy, and more. Sole engineer to decouple the frontend codebase from a massive monorepo, converting it to a microfrontend, paving the way for other engineering teams. Currently improving search and upload UX across all asset types, and building an ML classification pipeline using AWS tooling. The internal system is proprietary and cannot be shown so enjoy these GCOM gifs instead.',
         skills: ['Full-stack', 'React', 'TypeScript', 'DAM'],
         assets: [
           '/work/grainger/digital-asset-management/cad.gif',
