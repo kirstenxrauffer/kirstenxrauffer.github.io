@@ -24,8 +24,6 @@ interface ScatterCycleProps {
 
 const REVEAL_DURATION = 1.1;
 const EXIT_DURATION = 0.6;
-// Width eases during the exit phase so the reflow finishes just before the
-// next nickname scatters in at its new position.
 const WIDTH_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 export function ScatterCycle({
@@ -54,9 +52,10 @@ export function ScatterCycle({
     [index],
   );
 
-  // Measure each word's rendered width in the hidden sibling so the container
-  // can transition smoothly between them when the nickname changes length.
+  // Measure each word's rendered width in a hidden sibling so the exit-phase
+  // reflow can animate to the next nickname's width.
   const measureRef = useRef<HTMLSpanElement>(null);
+  const containerRef = useRef<HTMLSpanElement>(null);
   const [widths, setWidths] = useState<number[] | null>(null);
 
   useLayoutEffect(() => {
@@ -72,8 +71,6 @@ export function ScatterCycle({
 
     measure();
 
-    // Re-measure once web fonts finish loading, since fallback-font widths
-    // can differ meaningfully from the final rendered widths.
     const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
     if (fonts?.ready) {
       fonts.ready.then(measure).catch(() => {});
@@ -96,24 +93,40 @@ export function ScatterCycle({
     return () => clearTimeout(t);
   }, [showing, index, words.length, delay, hold, inScatter, outScatter]);
 
+  // During showing: container is natural auto width — font-load reflows
+  // happen silently, without triggering a visible width transition.
+  // During exit: snap to current rendered width (no transition), then next
+  // frame animate to the next word's width.
+  const [explicitWidth, setExplicitWidth] = useState<number | null>(null);
+  const [transitionOn, setTransitionOn] = useState(false);
+
+  useLayoutEffect(() => {
+    if (showing) {
+      setExplicitWidth(null);
+      setTransitionOn(false);
+      return;
+    }
+    if (!widths || !containerRef.current) return;
+    const current = containerRef.current.getBoundingClientRect().width;
+    setExplicitWidth(current);
+    setTransitionOn(false);
+    const id = requestAnimationFrame(() => {
+      setTransitionOn(true);
+      setExplicitWidth(widths[(index + 1) % words.length]);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [showing, index, widths, words.length]);
+
   const baseDelay = firstRun.current ? delay : 0;
-
-  // During the exit phase, target the NEXT word's width so the container
-  // reflows in sync with the letters fading out.
-  const targetWidth = widths
-    ? showing
-      ? widths[index]
-      : widths[(index + 1) % words.length]
-    : undefined;
-
-  // Match the total exit time (out-scatter window + fade duration) so the
-  // reflow finishes exactly as the next nickname begins scattering in.
   const widthDurationMs = Math.round((outScatter + EXIT_DURATION) * 1000);
+
   const containerStyle: CSSProperties = {
     display: 'inline-block',
     whiteSpace: 'pre',
-    width: targetWidth != null ? `${targetWidth}px` : undefined,
-    transition: widths ? `width ${widthDurationMs}ms ${WIDTH_EASE}` : 'none',
+    width: explicitWidth != null ? `${explicitWidth}px` : undefined,
+    transition: transitionOn
+      ? `width ${widthDurationMs}ms ${WIDTH_EASE}`
+      : 'none',
   };
 
   return (
@@ -131,12 +144,34 @@ export function ScatterCycle({
         }}
       >
         {words.map((w, i) => (
-          <span key={i} style={{ whiteSpace: 'pre' }}>
-            {w}
+          <span
+            key={i}
+            style={{ display: 'inline-block', whiteSpace: 'pre' }}
+          >
+            {[...w].map((ch, j) =>
+              ch === ' ' ? (
+                <span key={j} className={styles.space}>
+                  {' '}
+                </span>
+              ) : (
+                <span
+                  key={j}
+                  className={styles['scatter-letter']}
+                  style={{ animation: 'none' }}
+                >
+                  {ch}
+                </span>
+              ),
+            )}
           </span>
         ))}
       </span>
-      <span className={className} style={containerStyle} aria-label={word}>
+      <span
+        ref={containerRef}
+        className={className}
+        style={containerStyle}
+        aria-label={word}
+      >
         {chars.map((char, i) => {
           if (char === ' ') {
             return (
