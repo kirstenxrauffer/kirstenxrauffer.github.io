@@ -793,5 +793,6 @@
   white-space: nowrap;
   pointer-events: none;
   line-height: 1;
+  font-size: 0.8rem;
 }
 
