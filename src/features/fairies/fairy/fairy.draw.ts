@@ -37,6 +37,16 @@ const HUE_SWING   = 50;            // ±° around base; blue-violet → rose-pin
 const HUE_PERIOD  = 25000;         // ms per full cycle
 const BODY_SAT_SCALE = 0.50;       // 0 = fully grey, 1 = full colour; raised from 0.35 to harden the orb
 
+// Mood overrides — pinned hues that disable the sine drift.
+// angry: red, slightly more saturated, brighter for anger energy.
+// celebrate: warm yellow, fully saturated for triumphant glow.
+const ANGRY_HUE     = 0;    // red
+const ANGRY_SAT     = 1.0;  // replaces BODY_SAT_SCALE
+const ANGRY_INTENSITY = 1.8; // alpha multiplier — hotter, more vivid red
+const ANGRY_LIGHTNESS = 0.08; // +8% lightness so the red reads bright, not muddy
+const CELEBRATE_HUE = 52;   // golden yellow
+const CELEBRATE_SAT = 1.0;
+
 // Hover overrides — soft light-source effect: noticeably brighter, gentle halo, slow breath.
 const HOVER_HUE_PERIOD   = 12000; // ms — ~2× faster hue cycle (subtle, not jarring)
 const HOVER_INTENSITY    = 1.5;   // ~50% brighter at full hover
@@ -65,7 +75,14 @@ export function drawFairy(p: p5, fairy: Fairy, now: number, hoverT: number): voi
 
   // Hue period blends gently toward 2× faster on hover — subtle speed-up only.
   const huePeriod = HUE_PERIOD + (HOVER_HUE_PERIOD - HUE_PERIOD) * hoverT;
-  const hue = HUE_CENTER + Math.sin((now / huePeriod) * Math.PI * 2) * HUE_SWING;
+  // Mood overrides pin the hue; otherwise drift sinusoidally around lavender.
+  const moodPin =
+    fairy.mood === 'angry'     ? { hue: ANGRY_HUE,     sat: ANGRY_SAT } :
+    fairy.mood === 'celebrate' ? { hue: CELEBRATE_HUE, sat: CELEBRATE_SAT } :
+    null;
+  const hue = moodPin
+    ? moodPin.hue
+    : HUE_CENTER + Math.sin((now / huePeriod) * Math.PI * 2) * HUE_SWING;
 
   // Glow radius expands at hover so the orb blooms into a large soft light.
   const glowMaxR = GLOW_MAX_R * (1 + (HOVER_GLOW_MULT - 1) * hoverT);
@@ -90,13 +107,16 @@ export function drawFairy(p: p5, fairy: Fairy, now: number, hoverT: number): voi
     const pulse = Math.sin((now / HOVER_PULSE_PERIOD) * Math.PI * 2);
     const fullHoverScale = HOVER_INTENSITY * (1 + HOVER_PULSE_AMP * pulse);
     const hoverScale = 1.0 + (fullHoverScale - 1.0) * hoverT;
+    const angryScale = fairy.mood === 'angry' ? ANGRY_INTENSITY : 1.0;
     // Hardened: was t^2.5 * 80 — shallower curve + higher cap makes the core
     // more opaque and gives the orb more visible substance.
-    const alpha = Math.pow(t, 2.0) * 44 * hoverScale;
+    const alpha = Math.pow(t, 2.0) * 44 * hoverScale * angryScale;
 
     // At full hover: whiter center (reduced sat) and brighter lightness — "colored light" effect.
-    const sat = (100 - t * 35) / 100 * (1 - HOVER_DESAT * hoverT) * BODY_SAT_SCALE;
-    const lig = Math.min(1, (62 + t * 28) / 100 + HOVER_LIGHTNESS * hoverT);
+    const baseSatScale = moodPin ? moodPin.sat : BODY_SAT_SCALE;
+    const sat = (100 - t * 35) / 100 * (1 - HOVER_DESAT * hoverT) * baseSatScale;
+    const angryLift = fairy.mood === 'angry' ? ANGRY_LIGHTNESS : 0;
+    const lig = Math.min(1, (62 + t * 28) / 100 + HOVER_LIGHTNESS * hoverT + angryLift);
 
     const [rc, gc, bc] = hslToRgb(hue / 360, sat, lig);
     p.fill(rc, gc, bc, alpha);

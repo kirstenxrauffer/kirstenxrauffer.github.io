@@ -41,10 +41,8 @@ export function WaveText({
 
   if (variant === 'scatter') {
     return (
-      <Tag
-        className={[styles.root, className].filter(Boolean).join(' ')}
-        aria-label={text}
-      >
+      <Tag className={[styles.root, className].filter(Boolean).join(' ')}>
+        <span className={styles.srMirror}>{text}</span>
         {chars.map((char, i) => {
           if (char === ' ') {
             return (
@@ -73,10 +71,8 @@ export function WaveText({
     // a small offset with blur clearing. Soft, weightless feel.
     let idx = 0;
     return (
-      <Tag
-        className={[styles.root, className].filter(Boolean).join(' ')}
-        aria-label={text}
-      >
+      <Tag className={[styles.root, className].filter(Boolean).join(' ')}>
+        <span className={styles.srMirror}>{text}</span>
         {chars.map((char, i) => {
           if (char === ' ') {
             return (
@@ -104,10 +100,8 @@ export function WaveText({
   // wave (default): sequential stagger, mask + slide-up.
   let idx = 0;
   return (
-    <Tag
-      className={[styles.root, className].filter(Boolean).join(' ')}
-      aria-label={text}
-    >
+    <Tag className={[styles.root, className].filter(Boolean).join(' ')}>
+      <span className={styles.srMirror}>{text}</span>
       {chars.map((char, i) => {
         if (char === ' ') {
           return (

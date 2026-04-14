@@ -3,7 +3,7 @@ import type { CompanyWork, ProjectAssets } from './workManifest';
 import './WorkCarousel.css';
 import { StickyNote } from '../../components/StickyNote';
 import { StickyDoodles } from '../../components/StickyDoodles';
-import { TitleFrames } from '../../components/TitleFrames';
+import { TitleFrames, NUM_TITLE_STYLES } from '../../components/TitleFrames';
 import { ASCII_DOODLES } from '../../constants/asciidoodles';
 import { STICKY_NOTE_PALETTES } from '../../constants/stickyNoteColors';
 import type { StickyNotePalette } from '../../constants/stickyNoteColors';
@@ -312,11 +312,15 @@ interface TitleThumbProps {
   active?: boolean;
   /** Show resting brightness even when no cell is hovered/selected — used for the first cell */
   firstLit?: boolean;
+  /** Parent-assigned font index — lets the parent guarantee no two adjacent cells share a font */
+  fontIndex: number;
+  /** Parent-assigned frame-style index — same non-repeating guarantee */
+  styleIndex: number;
   onClick?: () => void;
   brandColor?: string;
 }
 
-function TitleThumb({ index, label, active, firstLit, onClick, brandColor }: TitleThumbProps) {
+function TitleThumb({ index, label, active, firstLit, fontIndex, styleIndex, onClick, brandColor }: TitleThumbProps) {
   // Word count drives a font-size step-down so longer titles still fit the cell.
   const wordCount = label.trim().split(/\s+/).length;
   const sizeClass =
@@ -325,14 +329,12 @@ function TitleThumb({ index, label, active, firstLit, onClick, brandColor }: Tit
     wordCount === 2 ? 'wc-thumb--title-md' :
     'wc-thumb--title-lg';
 
-  // Random per mount: font pick and frame seed are re-rolled each load so the
-  // same project shows a different font + brush frame every time the carousel
-  // opens. Stable within a single mount via useMemo([]) so re-renders don't
-  // reshuffle mid-view.
-  const { titleFont, labelHash } = useMemo(() => ({
-    titleFont: TITLE_FONTS[Math.floor(Math.random() * TITLE_FONTS.length)],
-    labelHash: Math.floor(Math.random() * 0x7fffffff),
-  }), []);
+  // Font comes from the parent-assigned fontIndex (which guarantees non-repeat
+  // between neighbors). labelHash is still random-per-mount — it seeds the
+  // small organic displacement filter inside TitleFrames, so every open of the
+  // carousel still gives a slightly different look within the picked style.
+  const titleFont = TITLE_FONTS[fontIndex % TITLE_FONTS.length];
+  const labelHash = useMemo(() => Math.floor(Math.random() * 0x7fffffff), []);
 
   return (
     <button
@@ -360,6 +362,7 @@ function TitleThumb({ index, label, active, firstLit, onClick, brandColor }: Tit
             color={brandColor ?? '#f0b030'}
             wordCount={wordCount}
             labelHash={labelHash}
+            styleIndex={styleIndex}
             strokeWidth={1.8}
           />
         </div>
@@ -524,6 +527,29 @@ export default function WorkCarousel({ company, onClose, exiting }: {
 
   const availableProjects = company.projects.filter(p => p.assets.length > 0 || !!p.description);
 
+  // Assign each project a font and frame-style index such that no two adjacent
+  // cells share either. Re-rolled whenever the company changes, so each load
+  // of the panel shows a fresh combo without ever putting two matching cells
+  // next to each other.
+  const [fontIndices, styleIndices] = useMemo(() => {
+    const pickNonAdjacent = (count: number, n: number, prev: number[]) => {
+      for (let i = 0; i < count; i++) {
+        let pick = Math.floor(Math.random() * n);
+        if (n > 1 && i > 0 && pick === prev[i - 1]) {
+          pick = (pick + 1 + Math.floor(Math.random() * (n - 1))) % n;
+        }
+        prev.push(pick);
+      }
+      return prev;
+    };
+    const fonts: number[] = [];
+    const styles: number[] = [];
+    pickNonAdjacent(availableProjects.length, 4, fonts);          // TITLE_FONTS.length
+    pickNonAdjacent(availableProjects.length, NUM_TITLE_STYLES, styles);
+    return [fonts, styles];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company.slug, availableProjects.length]);
+
   // Watch the top track's scroll position and compute which interactive cell
   // currently sits in the leftmost "first" slot (directly after the leading
   // decorative fillers). Rounded so a cell "wins" once it's scrolled past the
@@ -660,7 +686,9 @@ export default function WorkCarousel({ company, onClose, exiting }: {
                   index={FILLERS_START + i}
                   label={project.label}
                   active={selectedProject?.slug === project.slug}
-                  firstLit={i === topFirstIdx}
+                  firstLit={!selectedProject && i === topFirstIdx}
+                  fontIndex={fontIndices[i] ?? 0}
+                  styleIndex={styleIndices[i] ?? 0}
                   onClick={() => handleProjectClick(project)}
                   brandColor={company.color}
                 />

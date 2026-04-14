@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 'react';
+import type { ComponentType } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { FairyCanvas } from './features/fairies';
 import { WatercolorCanvas } from './features/watercolor';
@@ -15,6 +16,11 @@ import './App.css';
 // React.lazy throws on first mount). WorkCarousel stays lazy: it's much
 // larger and only mounts behind an explicit nav click.
 const WorkCarousel = lazy(() => import('./features/work/WorkCarousel'));
+// Game components are loaded on demand from the registry.
+import { findGame } from './features/games/gameRegistry';
+import { setBackgroundPalette } from './features/games/watercolorEngine';
+import { navArea } from './features/fairies/navArea';
+import type { GameResult, GameProps } from './features/games/types';
 
 function shuffle<T>(arr: T[]): T[] {
   const out = [...arr];
@@ -113,7 +119,12 @@ function App() {
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleRevealStart = useCallback(() => setRevealStarted(true), []);
-  const handlePalette     = useCallback((p: string[]) => setPalette(p), []);
+  const handlePalette     = useCallback((p: string[]) => {
+    setPalette(p);
+    // Feed the scene palette into the card-back generator so game decks
+    // visually belong to whichever hero image is showing.
+    setBackgroundPalette(p);
+  }, []);
 
   // Surface the nav right after the hero title finishes scattering in
   // (scatter variant: max 0.7s random offset + 1.1s animation ≈ 1.8s). Tied
@@ -163,6 +174,57 @@ function App() {
     setNavOpen(prev => !prev);
   }, []);
 
+  // ── Game overlay state ──────────────────────────────────────────────────────
+  // activeGameId drives which entry from GAME_REGISTRY is rendered. The lazy
+  // component is resolved on demand and cached per game id.
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
+  const [LoadedGame, setLoadedGame] = useState<ComponentType<GameProps> | null>(null);
+  const gameCacheRef = useRef<Map<string, ComponentType<GameProps>>>(new Map());
+  // lingerResult keeps the celebrate/angry mood on navi for a few seconds
+  // after the modal closes so the user sees the reaction animation play out.
+  const moodResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleGameStart = useCallback(async (id: string) => {
+    const entry = findGame(id);
+    if (!entry || !entry.available) return;
+    // Clear any lingering mood from the previous round.
+    if (moodResetTimer.current) clearTimeout(moodResetTimer.current);
+    navArea.currentMood = 'normal';
+
+    const cached = gameCacheRef.current.get(id);
+    if (cached) {
+      setLoadedGame(() => cached);
+      setActiveGameId(id);
+      return;
+    }
+    const mod = await entry.component();
+    gameCacheRef.current.set(id, mod.default);
+    setLoadedGame(() => mod.default);
+    setActiveGameId(id);
+  }, []);
+
+  const handleGameClose = useCallback(() => {
+    setActiveGameId(null);
+    setLoadedGame(null);
+    // Give navi a moment to finish the reaction animation, then reset mood.
+    if (moodResetTimer.current) clearTimeout(moodResetTimer.current);
+    moodResetTimer.current = setTimeout(() => {
+      navArea.currentMood = 'normal';
+    }, 5000);
+  }, []);
+
+  const handleGameEnd = useCallback((result: GameResult) => {
+    if (result === 'win') navArea.currentMood = 'celebrate';
+    else if (result === 'lose') navArea.currentMood = 'angry';
+    // Modal stays open so user can read the result + close manually.
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (moodResetTimer.current) clearTimeout(moodResetTimer.current);
+    };
+  }, []);
+
   const currentImage = sceneQueue[0];
 
   const mainClass = [
@@ -179,7 +241,12 @@ function App() {
         onRevealStart={handleRevealStart}
         onPalette={handlePalette}
       />
-      <FairyCanvas onFairyClick={handleFairyClick} navOpen={navOpen} />
+      <FairyCanvas
+        onFairyClick={handleFairyClick}
+        navOpen={navOpen}
+        onGameStart={handleGameStart}
+        gameActive={activeGameId !== null}
+      />
       <main className={mainClass}>
         <div className="app__routes" ref={routesRef}>
           <div className="app__routes-inner" ref={routesInnerRef}>
@@ -211,6 +278,11 @@ function App() {
           return co ? <WorkCarousel key={activeCompany} company={co} onClose={handleClose} /> : null;
         })()}
       </Suspense>
+
+      {/* Game overlay — renders whichever game the user picked from the prompt. */}
+      {activeGameId && LoadedGame && (
+        <LoadedGame onEnd={handleGameEnd} onClose={handleGameClose} />
+      )}
     </div>
   );
 }

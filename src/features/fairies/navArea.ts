@@ -39,4 +39,26 @@ export const navArea = {
    * (e.g. clicked elsewhere). Clears mood back to normal.
    */
   dismissRequested: false,
+
+  /**
+   * React → FSM signal: while true, navi holds still at her current position
+   * and emits pollen (the prompt-backdrop is dimming the screen). Cleared on
+   * dismiss / game start so she returns to wander.
+   */
+  holdForPrompt: false,
+
+  /**
+   * React → FSM signal: live screen-space position of the "you" label on the
+   * card-game board. While set, navi enters gameHover and lightly orbits this
+   * point so she stays visible beside the player's name without obstructing
+   * the board. Null when no game is active.
+   */
+  gameAnchor: null as { x: number; y: number } | null,
+
+  /**
+   * React → sketch signal: mood to apply to all live fairies on the next tick.
+   * Sketch copies this onto fairy.mood each frame so existing fairies pick up
+   * changes without restarting.
+   */
+  currentMood: 'normal' as 'normal' | 'angry' | 'celebrate',
 };

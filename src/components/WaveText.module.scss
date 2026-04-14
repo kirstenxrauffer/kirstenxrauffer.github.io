@@ -3,6 +3,16 @@
   white-space: pre-wrap;
 }
 
+// Visually-hidden mirror carrying the real text for screen readers / SEO.
+// Matches the pattern used on seungmee-lee.com: text is in the DOM as a text
+// node (not just aria-label), but removed from flow and invisible.
+.srMirror {
+  position: absolute;
+  opacity: 0;
+  user-select: none;
+  pointer-events: none;
+}
+
 // ── Wave variant (default) ────────────────────────────────────────────────────
 // Each letter slides up from below through an overflow-hidden mask, giving a
 // springy reveal. Opacity fades from 0→1 purely as a bonus softener.

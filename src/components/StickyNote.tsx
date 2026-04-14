@@ -22,6 +22,7 @@ const DRAG_THRESHOLD_PX = 6;
 export function StickyNote({ title, palette, rotation, children }: StickyNoteProps) {
   const [pos, setPos]         = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const [grown, setGrown] = useState(false);
   const lastPos = useRef({ x: 0, y: 0 });
   const downPos = useRef({ x: 0, y: 0 });
@@ -94,10 +95,21 @@ export function StickyNote({ title, palette, rotation, children }: StickyNotePro
     }
   }, []);
 
+  // Hover is driven by JS — not CSS :hover — so touch devices can't get a
+  // sticky hover state stuck on after a tap (which made notes stay expanded
+  // on the first mobile drag).
+  const onPointerEnter = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse') setIsHovering(true);
+  }, []);
+  const onPointerLeave = useCallback(() => {
+    setIsHovering(false);
+  }, []);
+
+  const expanded = (grown || isHovering) && !isDragging;
   const className = [
     styles.note,
     isDragging && styles.dragging,
-    grown && !isDragging && styles.hoverReady,
+    expanded && styles.hoverReady,
   ].filter(Boolean).join(' ');
 
   return (
@@ -115,6 +127,8 @@ export function StickyNote({ title, palette, rotation, children }: StickyNotePro
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
     >
       {title && (
         <>

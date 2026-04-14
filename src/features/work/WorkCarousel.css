@@ -673,6 +673,16 @@
   .wc-thumb--title-md .wc-thumb__title-text { font-size: 1.95rem; }
   .wc-thumb--title-sm .wc-thumb__title-text { font-size: 1.6rem; }
   .wc-thumb--title-xs .wc-thumb__title-text { font-size: 1.3rem; }
+
+  /* TitleFrames renders at a fixed 320×190 design size (matching desktop
+     cells). Mobile cells are 240×160, so the frame would otherwise overflow
+     and get clipped. Scale by 0.75 (240/320) so the full brush frame fits;
+     vertical 190 × 0.75 = 142.5 < 160, so it fits on that axis too. The
+     flex parent keeps it centered. */
+  .wc-thumb__title-doodles > svg {
+    transform: scale(0.75);
+    transform-origin: center center;
+  }
 }
 
 /* ── Text-only thumbnail ────────────────────────────────────────────────── */

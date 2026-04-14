@@ -39,13 +39,19 @@ import {
   NAV_AVOID_RADIUS,
   CENTER_AVOID_RX_FRAC,
   CENTER_AVOID_RY_FRAC,
-  NAV_TRAVEL_SPEED,
   NAV_ORBIT_ANG_SPEED,
   NAV_ORBIT_REVOLUTIONS,
   GAME_APPROACH_SPEED,
   GAME_APPROACH_ARRIVE,
+  GAME_HOVER_RADIUS_BASE,
+  GAME_HOVER_RADIUS_VARIANCE,
+  GAME_HOVER_ANG_SPEED,
+  GAME_HOVER_PHASE_SPEED,
+  GAME_HOVER_SPEED,
+  GAME_HOVER_TRAVEL_SPEED,
   ANGRY_SHAKE_HZ,
   ANGRY_SHAKE_AMP,
+  ANGRY_DURATION_MS,
   CELEBRATE_LAP_SPEED,
   CELEBRATE_LAP_INSET,
 } from '../fairy/constants';
@@ -226,7 +232,13 @@ function centerAvoidBias(fairy: Fairy, world: World): number | null {
 function tickNavOrbit(fairy: Fairy, dt: number): boolean {
   const fsm = fairy.fsm as Extract<FSMState, { kind: 'navOrbit' }>;
 
-  const angStep = NAV_ORBIT_ANG_SPEED * dt * fsm.orbitDir;
+  // Only advance the orbit angle once we've arrived at the container.
+  // During 'travel', holding orbitAngle fixed means the target point is just
+  // `center + (cos,sin) * radius` with a smoothly lerping center — a clean arc
+  // into the entry point instead of a spiral chasing a rotating target.
+  const angStep = fsm.phase === 'orbit'
+    ? NAV_ORBIT_ANG_SPEED * dt * fsm.orbitDir
+    : 0;
   fsm.orbitAngle += angStep;
 
   let cx: number;
@@ -259,16 +271,35 @@ function tickNavOrbit(fairy: Fairy, dt: number): boolean {
   const targetY = cy + Math.sin(fsm.orbitAngle) * fsm.radius;
   const dx = targetX - fairy.pos.x;
   const dy = targetY - fairy.pos.y;
-  if (dx * dx + dy * dy > 0.25) {
-    const desired = Math.atan2(dy, dx);
-    const diff = angleDiff(desired, fairy.heading);
-    const maxStep = 10 * dt;
-    fairy.heading += Math.max(-maxStep, Math.min(maxStep, diff));
-  }
+  const distToTarget = Math.hypot(dx, dy);
 
-  const speed = NAV_ORBIT_ANG_SPEED * fsm.radius + centerSpeed;
-  fairy.vel.x = Math.cos(fairy.heading) * speed;
-  fairy.vel.y = Math.sin(fairy.heading) * speed;
+  if (fsm.phase === 'travel') {
+    // Fly STRAIGHT at the entry point. Using a heading-based steer with a
+    // capped turn rate made navi arc for ~0.3s while rotating, which read as
+    // a weird curved approach. Velocity toward target + a fast heading snap
+    // keeps the path a clean dart while the sprite still faces forward.
+    const desired = distToTarget > 0.5 ? Math.atan2(dy, dx) : fairy.heading;
+    const diff = angleDiff(desired, fairy.heading);
+    const maxStep = 24 * dt; // ~1.3 rad in a single frame at 60fps
+    fairy.heading += Math.max(-maxStep, Math.min(maxStep, diff));
+    if (distToTarget > 0.5) {
+      fairy.vel.x = (dx / distToTarget) * centerSpeed;
+      fairy.vel.y = (dy / distToTarget) * centerSpeed;
+    } else {
+      fairy.vel.x = 0;
+      fairy.vel.y = 0;
+    }
+  } else {
+    if (distToTarget > 0.5) {
+      const desired = Math.atan2(dy, dx);
+      const diff = angleDiff(desired, fairy.heading);
+      const maxStep = 10 * dt;
+      fairy.heading += Math.max(-maxStep, Math.min(maxStep, diff));
+    }
+    const speed = NAV_ORBIT_ANG_SPEED * fsm.radius;
+    fairy.vel.x = Math.cos(fairy.heading) * speed;
+    fairy.vel.y = Math.sin(fairy.heading) * speed;
+  }
   return false;
 }
 
@@ -288,24 +319,49 @@ function tickGameApproach(fairy: Fairy, pointer: Pointer, dt: number): boolean {
   return dist < GAME_APPROACH_ARRIVE;
 }
 
-/** Idle near the cursor while the game-prompt tooltip is shown. */
-function tickGameIdle(fairy: Fairy, pointer: Pointer, dt: number): void {
-  if (!pointer.seen) return;
-  // Gentle hover ~60 px above the cursor. Soft approach so navi doesn't
-  // pin dead-centre on the mouse (blocks the Play button).
-  const targetX = pointer.x;
-  const targetY = pointer.y - 60;
+/**
+ * Hold position while the game menu is up — navi freezes wherever she arrived
+ * at the end of gameApproach. Velocity is damped to zero; position is left
+ * untouched so the tooltip anchor stays stable.
+ */
+function tickGameIdle(fairy: Fairy, _pointer: Pointer, dt: number): void {
+  const fsm = fairy.fsm as Extract<FSMState, { kind: 'gameIdle' }>;
+  fairy.vel.x = 0;
+  fairy.vel.y = 0;
+  // Snap gently back to anchor so integration in the caller stays a no-op.
+  fairy.pos.x += (fsm.anchor.x - fairy.pos.x) * Math.min(1, dt * 10);
+  fairy.pos.y += (fsm.anchor.y - fairy.pos.y) * Math.min(1, dt * 10);
+}
+
+/**
+ * Light orbit around the "you" label while a card game is active. Anchor is
+ * read live from navArea each tick so navi tracks scroll / resize. When she's
+ * far from the anchor (e.g. just entered the state), speed scales up so she
+ * migrates into the hover ring; once inside she settles into a slow circle
+ * with a breathing radius.
+ */
+function tickGameHover(fairy: Fairy, dt: number, anchor: Vec2): void {
+  const fsm = fairy.fsm as Extract<FSMState, { kind: 'gameHover' }>;
+  fsm.orbitAngle += GAME_HOVER_ANG_SPEED * dt;
+  fsm.orbitPhase += GAME_HOVER_PHASE_SPEED * dt;
+
+  const r = GAME_HOVER_RADIUS_BASE
+    + GAME_HOVER_RADIUS_VARIANCE       * Math.sin(fsm.orbitPhase)
+    + GAME_HOVER_RADIUS_VARIANCE * 0.5 * Math.sin(fsm.orbitPhase * 1.7);
+
+  const targetX = anchor.x + Math.cos(fsm.orbitAngle) * r;
+  const targetY = anchor.y + Math.sin(fsm.orbitAngle) * r;
   const dx = targetX - fairy.pos.x;
   const dy = targetY - fairy.pos.y;
-  const dist = Math.hypot(dx, dy);
-  if (dist > 2) {
-    steerHeading(fairy, Math.atan2(dy, dx), dt);
-  }
-  const targetSpeed = Math.min(80, dist * 2.5);
-  const currentSpeed = Math.hypot(fairy.vel.x, fairy.vel.y);
-  const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * 5);
-  fairy.vel.x = Math.cos(fairy.heading) * nextSpeed;
-  fairy.vel.y = Math.sin(fairy.heading) * nextSpeed;
+  if (dx * dx + dy * dy > 0.25) steerHeading(fairy, Math.atan2(dy, dx), dt);
+
+  const distToAnchor = Math.hypot(fairy.pos.x - anchor.x, fairy.pos.y - anchor.y);
+  const farFactor = Math.min(1, Math.max(0, (distToAnchor - r) / 140));
+  const desired = GAME_HOVER_SPEED + (GAME_HOVER_TRAVEL_SPEED - GAME_HOVER_SPEED) * farFactor;
+  const current = Math.hypot(fairy.vel.x, fairy.vel.y);
+  const next = current + (desired - current) * Math.min(1, dt * 4);
+  fairy.vel.x = Math.cos(fairy.heading) * next;
+  fairy.vel.y = Math.sin(fairy.heading) * next;
 }
 
 /**
@@ -315,12 +371,19 @@ function tickGameIdle(fairy: Fairy, pointer: Pointer, dt: number): void {
  */
 function tickAngry(fairy: Fairy, dt: number, now: number): void {
   const fsm = fairy.fsm as Extract<FSMState, { kind: 'angry' }>;
-  const t = (now - fsm.startedAt) / 1000;
+  const elapsedMs = now - fsm.startedAt;
+  // Timeout: clear the React-owned mood so the next tick transitions back to
+  // wander via the mood override block. sketch.ts copies navArea.currentMood
+  // onto fairy.mood every frame, so mutating fairy.mood here would be stomped.
+  if (elapsedMs >= ANGRY_DURATION_MS && navArea.currentMood === 'angry') {
+    navArea.currentMood = 'normal';
+  }
+  const t = elapsedMs / 1000;
   const shake = Math.sin(t * ANGRY_SHAKE_HZ * Math.PI * 2) * ANGRY_SHAKE_AMP;
-  // Damp velocity so navi stays in place around the anchor.
-  fairy.vel.x *= Math.max(0, 1 - dt * 8);
-  fairy.vel.y *= Math.max(0, 1 - dt * 8);
-  // Snap X to anchor + shake, let Y drift back to anchor gently.
+  // Zero velocity so the post-switch integration does nothing — we set pos
+  // directly here each frame.
+  fairy.vel.x = 0;
+  fairy.vel.y = 0;
   fairy.pos.x = fsm.anchor.x + shake;
   fairy.pos.y += (fsm.anchor.y - fairy.pos.y) * Math.min(1, dt * 6);
 }
@@ -420,39 +483,37 @@ export function tickFairy(args: TickArgs): void {
     }
   }
 
-  // NavOrbit request has highest priority: interrupts any current state.
-  // Triggered only on the click that OPENS the nav (FairyCanvas guards this).
-  if (navArea.zoomRequested && fairy.fsm.kind !== 'navOrbit') {
-    navArea.zoomRequested = false;
-    const container = navArea.navContainer;
-    if (container) {
-      const center: Vec2 = { x: container.cx, y: container.cy };
-      const radius = container.radius;
-      // Seed orbitAngle from navi's current angular position around the centre
-      // and place travelFrom one radius behind navi so at travelT=0 the orbit
-      // target lands on navi — no initial snap.
-      const initialAngle = Math.atan2(
-        fairy.pos.y - center.y,
-        fairy.pos.x - center.x,
-      );
-      const travelFrom: Vec2 = {
-        x: fairy.pos.x - Math.cos(initialAngle) * radius,
-        y: fairy.pos.y - Math.sin(initialAngle) * radius,
-      };
-      const dist = Math.hypot(center.x - travelFrom.x, center.y - travelFrom.y);
-      fairy.fsm = {
-        kind: 'navOrbit',
-        center,
-        radius,
-        phase: 'travel',
-        orbitAngle: initialAngle,
-        orbitTurn: 0,
-        orbitDir: Math.random() < 0.5 ? 1 : -1,
-        travelFrom,
-        travelT: 0,
-        travelDuration: Math.max(0.4, dist / NAV_TRAVEL_SPEED),
-      };
-    }
+  // Game active (anchor present): enter a light hover orbit around the "you"
+  // label. Mood states take precedence — win/lose animations play out before
+  // navi returns here. Not entered from flee so navi still completes her
+  // escape from the nav menu if it's open for any reason.
+  if (
+    navArea.gameAnchor
+    && !navArea.holdForPrompt
+    && fairy.fsm.kind !== 'gameHover'
+    && fairy.fsm.kind !== 'angry'
+    && fairy.fsm.kind !== 'celebrate'
+    && fairy.fsm.kind !== 'flee'
+    && fairy.mood === 'normal'
+  ) {
+    fairy.fsm = { kind: 'gameHover', orbitAngle: Math.random() * TAU, orbitPhase: 0 };
+  }
+  // Game ended (anchor cleared) while still hovering → release to wander.
+  if (!navArea.gameAnchor && fairy.fsm.kind === 'gameHover') {
+    fairy.fsm = { kind: 'wander', nextHeadingAt: now + 200 };
+  }
+
+  // Prompt-hold request: navi freezes at her current position, emits pollen
+  // (sketch.ts reads fsm.kind === 'gameIdle') and the prompt backdrop dims
+  // the rest of the screen. No travel, no orbit — just a held moment.
+  if (navArea.holdForPrompt && fairy.fsm.kind !== 'gameIdle') {
+    fairy.fsm = {
+      kind: 'gameIdle',
+      anchor: { x: fairy.pos.x, y: fairy.pos.y },
+    };
+    // Tell React the prompt is up — FairyCanvas already sets setPromptOpen on
+    // click, but this also drives any FSM-listening UI that relies on the flag.
+    navArea.gamePromptOpen = true;
   }
 
   switch (fairy.fsm.kind) {
@@ -537,15 +598,66 @@ export function tickFairy(args: TickArgs): void {
     }
 
     case 'navOrbit': {
-      // Exit when the nav closes — back to normal wandering.
-      if (!navArea.active) {
+      // Game-end moods take over even mid-orbit.
+      const fsm = fairy.fsm as Extract<FSMState, { kind: 'navOrbit' }>;
+      eyeTarget = fsm.center;
+      const done = tickNavOrbit(fairy, dt);
+      if (done) {
+        // Signal React: close the nav menu and show the game prompt tooltip.
+        navArea.gamePromptOpen = true;
+        // Freeze in place — navi holds here until the prompt is dismissed
+        // (click elsewhere) rather than chasing the cursor.
+        fairy.fsm = {
+          kind: 'gameIdle',
+          anchor: { x: fairy.pos.x, y: fairy.pos.y },
+        };
+      }
+      break;
+    }
+
+    case 'gameApproach': {
+      eyeTarget = ptrTarget;
+      const arrived = tickGameApproach(fairy, pointer, dt);
+      if (arrived) {
+        fairy.fsm = {
+          kind: 'gameIdle',
+          anchor: { x: fairy.pos.x, y: fairy.pos.y },
+        };
+      }
+      break;
+    }
+
+    case 'gameIdle': {
+      eyeTarget = ptrTarget;
+      // Game result posted by React — transition handled by mood block above.
+      if (navArea.gameStartRequested) {
+        navArea.gameStartRequested = false;
+        // Keep idling near cursor while the modal is up; mood will take over on end.
+      }
+      tickGameIdle(fairy, pointer, dt);
+      break;
+    }
+
+    case 'gameHover': {
+      const anchor = navArea.gameAnchor;
+      if (!anchor) {
         fairy.fsm = { kind: 'wander', nextHeadingAt: now + 200 };
         break;
       }
-      // Eyes track the link navi is currently visiting/orbiting.
-      const fsm = fairy.fsm as Extract<FSMState, { kind: 'navOrbit' }>;
-      eyeTarget = fsm.links[fsm.current] ?? null;
-      tickNavOrbit(fairy, dt);
+      eyeTarget = ptrTarget ?? anchor;
+      tickGameHover(fairy, dt, anchor);
+      break;
+    }
+
+    case 'angry': {
+      eyeTarget = ptrTarget;
+      tickAngry(fairy, dt, now);
+      break;
+    }
+
+    case 'celebrate': {
+      eyeTarget = null;
+      tickCelebrate(fairy, dt, world);
       break;
     }
   }

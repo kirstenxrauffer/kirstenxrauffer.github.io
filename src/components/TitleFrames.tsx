@@ -7,8 +7,12 @@ interface Props {
   wordCount: number;
   /** Stable seed derived from the label — keeps style/jitter identical across renders */
   labelHash: number;
+  /** Optional explicit frame style selector (0..NUM_STYLES-1). Falls back to labelHash. */
+  styleIndex?: number;
   strokeWidth?: number;
 }
+
+export const NUM_TITLE_STYLES = 6;
 
 // Seeded LCG RNG — deterministic per label so each card's frame is stable across renders.
 function makeRng(seed: number) {
@@ -39,20 +43,42 @@ function smoothPath(pts: Array<[number, number]>, close = false): string {
   return d;
 }
 
-// Points walking around a rectangle's perimeter with per-vertex wobble.
-function wobblyRect(
+// Clean rectangle path — sharp 90° corners. Built as a literal line path
+// rather than a Catmull-Rom smoothed one, because Catmull-Rom over four
+// corner points interpolates them into rounded sides (cushion shape) rather
+// than holding the rectangle.
+function straightRectPath(
   x1: number, y1: number, x2: number, y2: number,
-  rng: () => number, wobble: number, stepsPerSide: number,
+): string {
+  return `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2} L ${x1} ${y2} Z`;
+}
+
+// Rectangle perimeter with a sine wave perpendicular to each side. Integer
+// `cycles` keeps sin(2π·cycles·t)=0 at t∈{0,1}, so corners land exactly on the
+// nominal rect corners — no kink where two sides meet, no random jitter.
+function sineRect(
+  x1: number, y1: number, x2: number, y2: number,
+  amp: number, cycles: number,
 ): Array<[number, number]> {
-  const w = (x: number, y: number): [number, number] => [
-    x + (rng() - 0.5) * wobble,
-    y + (rng() - 0.5) * wobble,
-  ];
+  const W = x2 - x1, H = y2 - y1;
+  const stepsH = 32, stepsV = 24;
   const pts: Array<[number, number]> = [];
-  for (let i = 0; i <= stepsPerSide; i++) pts.push(w(x1 + (i / stepsPerSide) * (x2 - x1), y1));
-  for (let i = 1; i <= stepsPerSide; i++) pts.push(w(x2, y1 + (i / stepsPerSide) * (y2 - y1)));
-  for (let i = 1; i <= stepsPerSide; i++) pts.push(w(x2 - (i / stepsPerSide) * (x2 - x1), y2));
-  for (let i = 1; i < stepsPerSide;  i++) pts.push(w(x1, y2 - (i / stepsPerSide) * (y2 - y1)));
+  for (let i = 0; i <= stepsH; i++) {
+    const t = i / stepsH;
+    pts.push([x1 + t * W, y1 + Math.sin(t * Math.PI * 2 * cycles) * amp]);
+  }
+  for (let i = 1; i <= stepsV; i++) {
+    const t = i / stepsV;
+    pts.push([x2 + Math.sin(t * Math.PI * 2 * cycles) * amp, y1 + t * H]);
+  }
+  for (let i = 1; i <= stepsH; i++) {
+    const t = i / stepsH;
+    pts.push([x2 - t * W, y2 + Math.sin(t * Math.PI * 2 * cycles) * amp]);
+  }
+  for (let i = 1; i < stepsV; i++) {
+    const t = i / stepsV;
+    pts.push([x1 + Math.sin(t * Math.PI * 2 * cycles) * amp, y2 - t * H]);
+  }
   return pts;
 }
 
@@ -76,7 +102,7 @@ function innerHalfSize(wordCount: number): [number, number] {
   return [98, 44];
 }
 
-const NUM_STYLES = 6;
+const NUM_STYLES = NUM_TITLE_STYLES;
 
 function computeFrame(
   wordCount: number, fw: number, fh: number,
@@ -87,33 +113,36 @@ function computeFrame(
   const ix1 = cx - hw, iy1 = cy - hh, ix2 = cx + hw, iy2 = cy + hh;
   const exp = (n: number) => ({ x1: ix1 - n, y1: iy1 - n, x2: ix2 + n, y2: iy2 + n });
 
+  // Use the seeded rng so different labels still get different visual flavors
+  // within the same style (e.g., different sine cycle counts), but every
+  // generated path is itself smooth — no per-vertex random jitter.
+  void rng;
   switch (((style % NUM_STYLES) + NUM_STYLES) % NUM_STYLES) {
-    case 0: { // Double box — two concentric wobbly rectangles
+    case 0: { // Double straight box — two concentric clean rectangles
       const o = exp(13);
       return { type: 'paths', paths: [
-        smoothPath(wobblyRect(ix1, iy1, ix2, iy2, rng, 3, 7), true),
-        smoothPath(wobblyRect(o.x1, o.y1, o.x2, o.y2, rng, 4, 7), true),
+        straightRectPath(ix1, iy1, ix2, iy2),
+        straightRectPath(o.x1, o.y1, o.x2, o.y2),
       ]};
     }
-    case 1: { // Triple box — three concentric, outer wobbliest
+    case 1: { // Triple straight box — three concentric clean rectangles
       const m = exp(11), o = exp(21);
       return { type: 'paths', paths: [
-        smoothPath(wobblyRect(ix1, iy1, ix2, iy2, rng, 2, 6), true),
-        smoothPath(wobblyRect(m.x1, m.y1, m.x2, m.y2, rng, 3, 7), true),
-        smoothPath(wobblyRect(o.x1, o.y1, o.x2, o.y2, rng, 5, 8), true),
+        straightRectPath(ix1, iy1, ix2, iy2),
+        straightRectPath(m.x1, m.y1, m.x2, m.y2),
+        straightRectPath(o.x1, o.y1, o.x2, o.y2),
       ]};
     }
-    case 2: { // Squiggly outer + clean-ish inner
+    case 2: { // Wavy outer + straight inner — gentle sine on the outer frame
       const o = exp(15);
       return { type: 'paths', paths: [
-        smoothPath(wobblyRect(ix1, iy1, ix2, iy2, rng, 2, 6), true),
-        smoothPath(wobblyRect(o.x1, o.y1, o.x2, o.y2, rng, 11, 14), true),
+        straightRectPath(ix1, iy1, ix2, iy2),
+        smoothPath(sineRect(o.x1, o.y1, o.x2, o.y2, 3, 4), true),
       ]};
     }
-    case 3: { // Corner brackets — inner + outer L-shapes only
+    case 3: { // Corner brackets — clean inner + outer L-shapes only
       const o = exp(16);
       const { x1: ox1, y1: oy1, x2: ox2, y2: oy2 } = o;
-      const j = () => (rng() - 0.5) * 2.5;
       const ilen = 24, olen = 28;
       const paths: string[] = [];
       const corners: Array<[number, number, number, number, number]> = [
@@ -127,30 +156,20 @@ function computeFrame(
         [ox1, oy2,  1, -1, olen],
       ];
       for (const [bx, by, sx, sy, len] of corners) {
-        const wx = j(), wy = j();
         paths.push(
-          `M ${(bx + sx * len + wx).toFixed(2)},${(by + wy).toFixed(2)}` +
-          ` L ${(bx + wx).toFixed(2)},${(by + wy).toFixed(2)}` +
-          ` L ${(bx + wx).toFixed(2)},${(by + sy * len + wy).toFixed(2)}`,
+          `M ${(bx + sx * len).toFixed(2)},${by.toFixed(2)}` +
+          ` L ${bx.toFixed(2)},${by.toFixed(2)}` +
+          ` L ${bx.toFixed(2)},${(by + sy * len).toFixed(2)}`,
         );
       }
       return { type: 'paths', paths };
     }
-    case 4: { // Sketch box — each side drawn twice with overdrawn corners
-      const od = 10;
-      const j = () => (rng() - 0.5) * 4;
-      const paths: string[] = [];
-      for (let pass = 0; pass < 2; pass++) {
-        paths.push(
-          `M ${(ix1 - od + j()).toFixed(2)},${(iy1 + j()).toFixed(2)} L ${(ix2 + od + j()).toFixed(2)},${(iy1 + j()).toFixed(2)}`,
-          `M ${(ix2 + j()).toFixed(2)},${(iy1 - od + j()).toFixed(2)} L ${(ix2 + j()).toFixed(2)},${(iy2 + od + j()).toFixed(2)}`,
-          `M ${(ix2 + od + j()).toFixed(2)},${(iy2 + j()).toFixed(2)} L ${(ix1 - od + j()).toFixed(2)},${(iy2 + j()).toFixed(2)}`,
-          `M ${(ix1 + j()).toFixed(2)},${(iy2 + od + j()).toFixed(2)} L ${(ix1 + j()).toFixed(2)},${(iy1 - od + j()).toFixed(2)}`,
-        );
-      }
-      const outer = exp(14);
-      paths.push(smoothPath(wobblyRect(outer.x1, outer.y1, outer.x2, outer.y2, rng, 3, 7), true));
-      return { type: 'paths', paths };
+    case 4: { // Double wavy box — both frames smooth sine, different cycle counts
+      const o = exp(14);
+      return { type: 'paths', paths: [
+        smoothPath(sineRect(ix1, iy1, ix2, iy2, 2.5, 5), true),
+        smoothPath(sineRect(o.x1, o.y1, o.x2, o.y2, 3.5, 4), true),
+      ]};
     }
     case 5: { // Diagonal hatch clipped to the margin between inner and outer box
       const o = exp(15);
@@ -167,8 +186,8 @@ function computeFrame(
       }
       return {
         type: 'hatch',
-        boxInner: smoothPath(wobblyRect(ix1, iy1, ix2, iy2, rng, 2, 6), true),
-        boxOuter: smoothPath(wobblyRect(ox1, oy1, ox2, oy2, rng, 3, 7), true),
+        boxInner: straightRectPath(ix1, iy1, ix2, iy2),
+        boxOuter: straightRectPath(ox1, oy1, ox2, oy2),
         hatchPaths,
         clipInner: { x1: ix1, y1: iy1, x2: ix2, y2: iy2 },
         clipOuter: { x1: ox1, y1: oy1, x2: ox2, y2: oy2 },
@@ -180,16 +199,18 @@ function computeFrame(
 }
 
 export function TitleFrames({
-  fieldWidth, fieldHeight, color, wordCount, labelHash, strokeWidth,
+  fieldWidth, fieldHeight, color, wordCount, labelHash, styleIndex, strokeWidth,
 }: Props) {
   const filterId = useId();
   const clipId   = useId();
   const resolvedStroke = strokeWidth ?? 1.6;
 
+  const resolvedStyle = styleIndex ?? labelHash;
+
   const { frameData, noiseSeed } = useMemo(() => ({
-    frameData: computeFrame(wordCount, fieldWidth, fieldHeight, makeRng(labelHash), labelHash),
+    frameData: computeFrame(wordCount, fieldWidth, fieldHeight, makeRng(labelHash), resolvedStyle),
     noiseSeed: Math.abs(labelHash) % 256,
-  }), [fieldWidth, fieldHeight, wordCount, labelHash]);
+  }), [fieldWidth, fieldHeight, wordCount, labelHash, resolvedStyle]);
 
   return (
     <svg
@@ -201,8 +222,8 @@ export function TitleFrames({
     >
       <defs>
         <filter id={filterId} x="-5%" y="-5%" width="110%" height="110%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="1" seed={noiseSeed} result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.8" />
+          <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="1" seed={noiseSeed} result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.25" />
         </filter>
         {frameData.type === 'hatch' && (
           <clipPath id={clipId}>

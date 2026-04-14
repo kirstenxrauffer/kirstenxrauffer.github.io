@@ -35,8 +35,18 @@ export type FSMState =
       kind: 'gameApproach';
     }
   | {
-      // Idling close to the cursor while the game-prompt tooltip is shown.
+      // Holding position while the game-prompt tooltip is shown.
+      // Anchored where navi finished the nav-orbit; ignores cursor until dismissed.
       kind: 'gameIdle';
+      anchor: Vec2;
+    }
+  | {
+      // While a card game is active, lightly orbit the "you" label on the
+      // board (anchor is read live from navArea.gameAnchor each tick so it
+      // tracks scroll / resize).
+      kind: 'gameHover';
+      orbitAngle: number;
+      orbitPhase: number;
     }
   | {
       // Shake side-to-side angrily with a red glow.

@@ -129,9 +129,21 @@ export const NAV_ORBIT_REVOLUTIONS = 1;    // full turns around the container be
 export const GAME_APPROACH_SPEED   = 260;  // px/s — quick but readable
 export const GAME_APPROACH_ARRIVE  = 60;   // px from cursor at which the prompt opens
 
+// Game-hover constants — while a card game modal is active navi lightly orbits
+// the player's "you" label on the board. Radius is kept small so she never
+// drifts over the cards; travel speed ramps up when far so she can migrate
+// with the anchor if the layout shifts.
+export const GAME_HOVER_RADIUS_BASE     = 55;   // px from the label centre
+export const GAME_HOVER_RADIUS_VARIANCE = 18;   // px; ≈37–82 px actual range
+export const GAME_HOVER_ANG_SPEED       = 0.5;  // rad/s — gentle circling
+export const GAME_HOVER_PHASE_SPEED     = 0.8;  // rad/s — radius breathing
+export const GAME_HOVER_SPEED           = 32;   // px/s — hover speed when close
+export const GAME_HOVER_TRAVEL_SPEED    = 140;  // px/s — closing speed when far
+
 // Win/lose mood constants.
 export const ANGRY_SHAKE_HZ        = 14;   // cycles/s of side-to-side shake
-export const ANGRY_SHAKE_AMP       = 12;   // px — peak horizontal displacement
+export const ANGRY_SHAKE_AMP       = 6;    // px — peak horizontal displacement
+export const ANGRY_DURATION_MS     = 2000; // ms — shake duration before navi cools off
 export const CELEBRATE_LAP_SPEED   = 320;  // px/s — victory-lap travel speed
 export const CELEBRATE_LAP_INSET   = 120;  // px inset from viewport edge for the lap path
 

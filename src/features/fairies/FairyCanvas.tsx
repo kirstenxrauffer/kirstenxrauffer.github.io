@@ -1,48 +1,39 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type p5Type from 'p5';
 import styles from './FairyCanvas.module.scss';
 import { subscribePointer } from './input/pointer';
 import { mountCursorDot } from './pollen';
 import { navArea } from './navArea';
+import { GAME_REGISTRY } from '../games/gameRegistry';
 
 type Props = {
   onFairyClick?: () => void;
   navOpen?: boolean;
+  /** Called when user clicks a game in the prompt tooltip. */
+  onGameStart?: (gameId: string) => void;
+  /** Hide the prompt tooltip when a game is active so it doesn't overlap the modal. */
+  gameActive?: boolean;
 };
 
-// How far above fairy.pos.y (the body centre) the bottom of the label sits.
-// Wings extend ~27 px above centre at current scale; 50 px gives a clear gap.
 const LABEL_OFFSET_Y = 50;
 
-// Reads screen-space centres of the top-level nav buttons. Returns [] if the
-// nav hasn't mounted yet — the FSM falls back to no-op when the list is empty.
-function readNavLinkCenters(): { x: number; y: number }[] {
-  const out: { x: number; y: number }[] = [];
-  document.querySelectorAll('.nav-menu__btn').forEach((el) => {
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) return;
-    out.push({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
-  });
-  return out;
-}
-
-export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
+export default function FairyCanvas({ onFairyClick, navOpen, onGameStart, gameActive }: Props) {
   const hostRef       = useRef<HTMLDivElement>(null);
   const labelRef      = useRef<HTMLDivElement>(null);
+  const promptRef     = useRef<HTMLDivElement>(null);
   const isHoveringRef = useRef(false);
   const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Game prompt visibility: set when the FSM finishes the container orbit.
+  const [promptOpen, setPromptOpen] = useState(false);
 
-  // Mirror navOpen into the navArea singleton so the FSM can read it each frame.
   useEffect(() => {
     navArea.active = navOpen ?? false;
   }, [navOpen]);
 
-  // Shows the label immediately; caller is responsible for scheduling a hide.
   const showLabel = useCallback(() => {
     if (labelRef.current) labelRef.current.dataset.visible = 'true';
   }, []);
 
-  // Hides the label after `delay` ms, skipped if pointer is still hovering.
   const scheduleHide = useCallback((delay: number) => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => {
@@ -52,7 +43,6 @@ export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
     }, delay);
   }, []);
 
-  // Initial show (1 s after mount so position is known) + periodic nudge.
   useEffect(() => {
     const initialTimer = setTimeout(() => {
       showLabel();
@@ -71,32 +61,74 @@ export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
     };
   }, [showLabel, scheduleHide]);
 
-  // Window-level click listener — fires regardless of pointer-events: none
-  // on the canvas. Calls onFairyClick only when the pointer is over a fairy.
+  // Poll the navArea singleton for the FSM → React signal. The FSM sets
+  // gamePromptOpen once it finishes the container orbit; we pick it up and
+  // show the prompt + close the nav menu.
   useEffect(() => {
-    if (!onFairyClick) return;
+    const id = window.setInterval(() => {
+      if (navArea.gamePromptOpen) {
+        navArea.gamePromptOpen = false;
+        navArea.active = false; // release nav-menu from "fleeing" logic
+        setPromptOpen(true);
+        if (navOpen) onFairyClick?.(); // close nav menu
+      }
+    }, 60);
+    return () => clearInterval(id);
+  }, [navOpen, onFairyClick]);
+
+  // Hide the prompt when a game becomes active (modal takes over).
+  useEffect(() => {
+    if (gameActive) setPromptOpen(false);
+  }, [gameActive]);
+
+  // Stream the "you" label's screen-space position into navArea while a game
+  // is active so the FSM can lightly orbit it. rAF keeps the anchor in sync
+  // with scroll / resize / layout shifts during play. Cleared on unmount.
+  useEffect(() => {
+    if (!gameActive) {
+      navArea.gameAnchor = null;
+      return;
+    }
+    let raf = 0;
+    const tick = () => {
+      const el = document.querySelector<HTMLElement>('[data-navi-anchor="you"]');
+      if (el) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) {
+          navArea.gameAnchor = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        } else {
+          navArea.gameAnchor = null;
+        }
+      } else {
+        navArea.gameAnchor = null;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      navArea.gameAnchor = null;
+    };
+  }, [gameActive]);
+
+  useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (!isHoveringRef.current) return;
-      // Don't fire when the user clicked on interactive UI (nav buttons, links, etc.)
       if ((e.target as Element).closest('button, a, [role="button"], input, select')) return;
-      // Record position so the FSM knows where to compute the flee target from.
       navArea.clickX = e.clientX;
       navArea.clickY = e.clientY;
-      // Only request orbit on the OPENING click; closing clicks shouldn't re-trigger.
-      // Sync navArea.active synchronously so the next p5 frame doesn't see a stale
-      // value before React commits the navOpen state via the useEffect below.
-      if (!navArea.active) {
-        navArea.navLinks = readNavLinkCenters();
-        navArea.zoomRequested = true;
-        navArea.active = true;
-      }
-      onFairyClick();
+      // Simple ritual: dim the screen (via the prompt backdrop), freeze navi
+      // in place with pollen, and show the prompt immediately. No nav-orbit
+      // travel, no nav-menu opening.
+      navArea.holdForPrompt = true;
+      // Close the nav if it happens to be open so the dim layer is clean.
+      if (navOpen) onFairyClick?.();
+      setPromptOpen(true);
     };
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
-  }, [onFairyClick]);
+  }, [onFairyClick, navOpen]);
 
-  // p5 sketch — async import keeps the heavy canvas code out of the initial bundle.
   useEffect(() => {
     let instance: p5Type | null = null;
     let cancelled = false;
@@ -104,13 +136,6 @@ export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
     const unmountDot = mountCursorDot();
 
     (async () => {
-      // Sequential import — NOT Promise.all. ./sketch statically imports
-      // p5.brush, which evaluates module-load-time code that registers its
-      // p5 lifecycle hooks via `if (typeof p5 !== "undefined") p5.registerAddon(...)`.
-      // p5 v2 ESM does NOT publish itself to window, so we publish it here
-      // before p5.brush ever evaluates. Without this, the hooks never register
-      // and brush operations on a non-active p5 instance silently misroute
-      // (see StickyDivider for the same fix and longer note).
       const { default: P5 } = await import('p5');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).p5 = P5;
@@ -122,45 +147,46 @@ export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
           document.body.style.cursor = h ? 'pointer' : '';
           if (h) {
             showLabel();
-            // Cancel any pending hide — keep visible while hovering.
             if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
           } else {
             scheduleHide(1500);
           }
         },
-        // Update label position every frame by mutating the DOM directly —
-        // avoids 60 fps React re-renders.
         onPositionChange: (x, y) => {
           const el = labelRef.current;
-          if (!el) return;
-          el.style.transform =
-            `translate(calc(${x}px - 50%), calc(${y - LABEL_OFFSET_Y}px - 100%))`;
+          const promptEl = promptRef.current;
+          if (el) {
+            el.style.transform =
+              `translate(calc(${x}px - 50%), calc(${y - LABEL_OFFSET_Y}px - 100%))`;
 
-          // Hide label when it's near other page content.
-          const rect = el.getBoundingClientRect();
-          if (rect.width === 0) return; // not yet painted
-
-          // The fairy-canvas container wraps both the host and the label —
-          // use it as the exclusion root so we only flag external content.
-          const fairyRoot = hostRef.current?.parentElement ?? null;
-          const PAD = 20;
-          const pts: [number, number][] = [
-            [rect.left  - PAD, rect.top    - PAD],
-            [rect.right + PAD, rect.top    - PAD],
-            [rect.left  - PAD, rect.bottom + PAD],
-            [rect.right + PAD, rect.bottom + PAD],
-            [rect.left + rect.width / 2, rect.top - PAD],
-            [rect.left  - PAD, rect.top + rect.height / 2],
-            [rect.right + PAD, rect.top + rect.height / 2],
-          ];
-          const nearContent = pts.some(([px, py]) =>
-            document.elementsFromPoint(px, py).some(e =>
-              e !== document.documentElement &&
-              e !== document.body &&
-              !(fairyRoot ? fairyRoot.contains(e) || e === fairyRoot : false)
-            )
-          );
-          el.dataset.nearContent = nearContent ? 'true' : 'false';
+            const rect = el.getBoundingClientRect();
+            if (rect.width > 0) {
+              const fairyRoot = hostRef.current?.parentElement ?? null;
+              const PAD = 20;
+              const pts: [number, number][] = [
+                [rect.left  - PAD, rect.top    - PAD],
+                [rect.right + PAD, rect.top    - PAD],
+                [rect.left  - PAD, rect.bottom + PAD],
+                [rect.right + PAD, rect.bottom + PAD],
+                [rect.left + rect.width / 2, rect.top - PAD],
+                [rect.left  - PAD, rect.top + rect.height / 2],
+                [rect.right + PAD, rect.top + rect.height / 2],
+              ];
+              const nearContent = pts.some(([px, py]) =>
+                document.elementsFromPoint(px, py).some(e =>
+                  e !== document.documentElement &&
+                  e !== document.body &&
+                  !(fairyRoot ? fairyRoot.contains(e) || e === fairyRoot : false)
+                )
+              );
+              el.dataset.nearContent = nearContent ? 'true' : 'false';
+            }
+          }
+          // Position the game-prompt tooltip above navi in the same way.
+          if (promptEl) {
+            promptEl.style.transform =
+              `translate(calc(${x}px - 50%), calc(${y - LABEL_OFFSET_Y}px - 100%))`;
+          }
         },
       }), hostRef.current);
     })();
@@ -175,12 +201,64 @@ export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
     };
   }, [showLabel, scheduleHide]);
 
+  const handleDismiss = useCallback(() => {
+    setPromptOpen(false);
+    navArea.holdForPrompt = false;
+    navArea.dismissRequested = true;
+  }, []);
+
+  const handlePickGame = useCallback((gameId: string) => {
+    setPromptOpen(false);
+    navArea.holdForPrompt = false;
+    navArea.gameStartRequested = true;
+    onGameStart?.(gameId);
+  }, [onGameStart]);
+
   return (
-    <div className={styles['fairy-canvas']} aria-hidden="true">
+    <div
+      className={styles['fairy-canvas']}
+      aria-hidden="true"
+      data-game-active={gameActive ? 'true' : 'false'}
+    >
       <div ref={hostRef} className={styles['fairy-canvas__host']} />
-      <div ref={labelRef} className={styles['fairy-label']}>
+      <div
+        className={styles['fairy-prompt-backdrop']}
+        data-visible={promptOpen ? 'true' : 'false'}
+        onClick={handleDismiss}
+      />
+      <div ref={labelRef} className={styles['fairy-label']} data-visible="false">
         <span className={styles['fairy-label__text']}>whatcha looking for?</span>
         <div className={styles['fairy-label__arrow']} />
+      </div>
+      <div
+        ref={promptRef}
+        className={styles['fairy-prompt']}
+        data-visible={promptOpen ? 'true' : 'false'}
+      >
+        <div className={styles['fairy-prompt__bubble']}>
+          <div className={styles['fairy-prompt__text']}>want to play a game?</div>
+          <div className={styles['fairy-prompt__buttons']}>
+            {GAME_REGISTRY.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                className={styles['fairy-prompt__btn']}
+                onClick={() => handlePickGame(g.id)}
+                disabled={!g.available}
+              >
+                {g.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className={styles['fairy-prompt__btn--ghost']}
+              onClick={handleDismiss}
+            >
+              no thanks
+            </button>
+          </div>
+        </div>
+        <div className={styles['fairy-prompt__arrow']} />
       </div>
     </div>
   );

@@ -22,21 +22,14 @@
     box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
     transform  0.28s cubic-bezier(0.16, 1, 0.3, 1);
 
-  // Grown state driven by .hoverReady class alone (no :hover) so touch gets
-  // the same CSS transition on both grow and shrink.
+  // Expanded state — driven entirely from JS (StickyNote.tsx) which combines
+  // grown (toggled on tap/click end) and hover (mouse-only via pointerType).
+  // CSS :hover is intentionally NOT used: on touch it can stick after a tap
+  // and re-grow the note when the drag ends.
   &.hoverReady {
     box-shadow: 18px 18px 26px rgba(0, 0, 0, 0.55);
     transform: translate(var(--snx, 0px), var(--sny, 0px)) rotate(var(--snr, 0deg)) scale(1.9);
     z-index: 999;
-  }
-
-  // Hover grow only on devices that actually hover — avoids sticky hover on touch.
-  @media (hover: hover) {
-    &:hover:not(.dragging):not(.hoverReady) {
-      box-shadow: 18px 18px 26px rgba(0, 0, 0, 0.55);
-      transform: translate(var(--snx, 0px), var(--sny, 0px)) rotate(var(--snr, 0deg)) scale(1.9);
-      z-index: 999;
-    }
   }
 }
 

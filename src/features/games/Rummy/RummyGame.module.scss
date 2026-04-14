@@ -1,0 +1,415 @@
+// Gin Rummy — visual language shared with War: white playing cards (75×100
+// with small variants), purple backs, Gambetta for the title, General Sans for
+// UI text. Layout is three stacked strips: navi's hidden hand at top, piles +
+// message in the middle, player's sorted hand + actions at the bottom.
+
+.rummy {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  padding: 1.2rem 1rem 1.5rem;
+  background: rgba(20, 10, 40, 0.68);
+  backdrop-filter: blur(10px);
+  animation: rummy-fade 260ms ease both;
+  font-family: 'General Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #f6f1ff;
+  overflow-y: auto;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  &__title {
+    font-family: 'Gambetta', Georgia, 'Times New Roman', serif;
+    font-size: 2.2rem;
+    letter-spacing: 0.04em;
+    font-weight: 300;
+  }
+
+  &__close {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: inherit;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: background 120ms ease;
+    &:hover { background: rgba(255, 255, 255, 0.18); }
+  }
+
+  &__side-label {
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    text-transform: lowercase;
+    opacity: 0.8;
+    margin-bottom: 0.4rem;
+  }
+
+  // ── Navi strip ───────────────────────────────────────────────────────────
+  &__navi {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+  }
+
+  &__navi-hand {
+    display: flex;
+    // Negative overlap so 10+ cards fit on one row.
+    gap: 0;
+    & > * + * { margin-left: -32px; }
+  }
+
+  &__navi-card {
+    transition: transform 300ms ease, filter 300ms ease;
+    &--flash {
+      transform: translateY(-8px);
+      filter: drop-shadow(0 0 12px rgba(255, 230, 140, 0.9));
+    }
+  }
+
+  // ── Middle strip ─────────────────────────────────────────────────────────
+  &__middle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  &__message {
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+    min-height: 1.4em;
+  }
+
+  &__piles {
+    display: flex;
+    gap: 1.1rem;
+  }
+
+  &__pile-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0.3rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    transition: transform 150ms ease, filter 150ms ease;
+    font-family: inherit;
+    color: inherit;
+    &:hover:not(:disabled) {
+      transform: translateY(-3px);
+      filter: drop-shadow(0 0 10px rgba(176, 132, 224, 0.6));
+    }
+    &:disabled { cursor: default; opacity: 0.55; }
+  }
+
+  &__pile-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    opacity: 0.75;
+  }
+
+  &__pile-empty {
+    width: 75px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 0.7rem;
+    opacity: 0.55;
+  }
+
+  &__deadwood {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    strong { font-size: 1.05rem; font-weight: 600; }
+  }
+
+  &__deadwood-hint {
+    font-size: 0.75rem;
+    opacity: 0.65;
+    font-style: italic;
+  }
+
+  // ── Player strip ─────────────────────────────────────────────────────────
+  &__player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+  }
+
+  &__player-hand {
+    display: flex;
+    // Overlap so 10- and 11-card hands fit on one row.
+    gap: 0;
+    & > * + * { margin-left: -20px; }
+    padding-top: 14px; // Leave room for the -translateY hover/selected shift.
+  }
+
+  &__card-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: transform 150ms ease, filter 150ms ease;
+    font-family: inherit;
+
+    &:hover:not(:disabled):not(&--idle) {
+      transform: translateY(-10px);
+      z-index: 10;
+    }
+
+    &--idle { cursor: default; }
+    &--idle:hover { transform: none; }
+
+    &--selected {
+      transform: translateY(-18px) !important;
+      filter: drop-shadow(0 0 12px rgba(255, 230, 140, 0.8));
+      z-index: 20 !important;
+    }
+
+    // Newly-drawn card — breaks out of the overlapped hand with a gap on its
+    // left, a subtle purple glow, and its full width exposed (no negative
+    // margin from the sibling-overlap rule) so the user sees "this is the
+    // card you just drew — decide what to do with it."
+    &--new {
+      margin-left: 1.4rem !important;
+      filter: drop-shadow(0 0 10px rgba(200, 150, 255, 0.7));
+      animation: rummy-new-card-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    &--melded {
+      // A subtle gold underline on the card face so the user sees which cards
+      // are currently part of a meld.
+      filter: drop-shadow(0 0 8px rgba(255, 210, 120, 0.55));
+    }
+
+    &:disabled:not(&--selected):not(&--melded) { opacity: 0.85; }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.7rem;
+  }
+
+  &__action {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: inherit;
+    padding: 0.55rem 1.4rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 120ms ease, transform 120ms ease;
+    font-family: inherit;
+    &:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.22);
+      transform: translateY(-1px);
+    }
+    &:disabled { opacity: 0.45; cursor: default; }
+  }
+
+  &__action--knock {
+    background: linear-gradient(135deg, #b084e0 0%, #8a5ccc 100%);
+    border-color: transparent;
+    color: #fff;
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #c598f0 0%, #9a6cdc 100%);
+    }
+  }
+
+  // ── End-of-game reveal panel ─────────────────────────────────────────────
+  &__reveal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(42, 22, 70, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    padding: 1.3rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    align-items: center;
+    max-width: min(720px, 94vw);
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: rummy-reveal 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    z-index: 30;
+  }
+
+  &__reveal-title {
+    font-family: 'Gambetta', Georgia, serif;
+    font-size: 1.7rem;
+    letter-spacing: 0.04em;
+  }
+
+  &__reveal-score {
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    opacity: 0.9;
+  }
+
+  &__melding {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  &__melding-label {
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    opacity: 0.85;
+  }
+
+  &__melding-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  &__melding-row {
+    display: flex;
+    gap: 0.15rem;
+
+    &--deadwood {
+      opacity: 0.7;
+      // Slight visual break between melds and deadwood.
+      padding-top: 0.35rem;
+      border-top: 1px dashed rgba(255, 255, 255, 0.15);
+      margin-top: 0.15rem;
+    }
+  }
+
+  &__melding-card {
+    flex: 0 0 auto;
+  }
+}
+
+// ── Card styles (matches the shared visual language from War/Spit) ──────────
+.card {
+  width: 75px;
+  height: 100px;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  font-family: 'Gambetta', Georgia, serif;
+
+  &--small {
+    width: 44px;
+    height: 60px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+  }
+
+  &--red   { color: #d40f14; }
+  &--black { color: #111; }
+
+  &__suit {
+    font-size: 0.95rem;
+    font-weight: 500;
+    position: absolute;
+    padding-left: 6px;
+    padding-right: 6px;
+    &--top    { top: 4px; left: 0; }
+    &--bottom { bottom: 4px; right: 0; transform: rotate(180deg); }
+  }
+
+  &--small &__suit {
+    font-size: 0.62rem;
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+
+  &__number {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    font-weight: 400;
+  }
+
+  &--small &__number {
+    font-size: 1.05rem;
+  }
+
+  &--back {
+    background: transparent;
+  }
+
+  &__pattern {
+    position: absolute;
+    inset: 5px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.08) 0 3px,
+        transparent 3px 6px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.08) 0 3px,
+        transparent 3px 6px
+      );
+  }
+
+  &--small &__pattern { inset: 3px; }
+}
+
+// ── Animations ──────────────────────────────────────────────────────────────
+@keyframes rummy-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes rummy-reveal {
+  from { opacity: 0; transform: translate(-50%, -46%) scale(0.97); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+// Newly-drawn card slides in from the right (toward the stock/discard piles
+// it came from) and settles.
+@keyframes rummy-new-card-in {
+  from { opacity: 0; transform: translate(22px, -6px); }
+  to   { opacity: 1; transform: translate(0, 0); }
+}
+
+@media (max-width: 720px) {
+  .rummy {
+    padding: 0.8rem 0.5rem 1rem;
+  }
+  .rummy__navi-hand > * + * { margin-left: -42px; }
+  .rummy__player-hand > * + * { margin-left: -34px; }
+  .rummy__title { font-size: 1.5rem; }
+}

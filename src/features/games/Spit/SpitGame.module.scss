@@ -1,0 +1,454 @@
+// Spit card game — real-time dual-stockpile layout. Visual language mirrors
+// WarGame (75×100 cards, Gambetta title, purple backdrop) but with five
+// stockpiles per side and two shared center piles.
+
+.spit {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(20, 10, 40, 0.65);
+  backdrop-filter: blur(10px);
+  animation: spit-fade 260ms ease both;
+  font-family: 'General Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #f6f1ff;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  &__title {
+    font-family: 'Gambetta', Georgia, 'Times New Roman', serif;
+    font-size: 2.4rem;
+    letter-spacing: 0.04em;
+    font-weight: 300;
+  }
+
+  &__close {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: inherit;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: background 120ms ease;
+    &:hover { background: rgba(255, 255, 255, 0.18); }
+  }
+
+  &__board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: min(820px, 96vw);
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: 60px 1fr 70px;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.65rem 0.8rem;
+    border-radius: 10px;
+    // Subtle zone framing so each side reads as its own "territory".
+    border: 1px solid transparent;
+    transition: border-color 160ms ease, background 160ms ease;
+
+    &[data-owner='navi'] {
+      direction: rtl;
+      background: rgba(255, 200, 110, 0.05);
+      border-color: rgba(255, 200, 110, 0.16);
+    }
+    &[data-owner='navi'] > * { direction: ltr; }
+
+    &[data-owner='player'] {
+      background: rgba(200, 150, 255, 0.06);
+      border-color: rgba(200, 150, 255, 0.2);
+    }
+  }
+
+  &__label {
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: lowercase;
+    opacity: 0.8;
+    text-align: center;
+  }
+
+  &__piles {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+  }
+
+  // Each stockpile is an oversized slot so the messy understack can fan out
+  // without clipping — same idea as War's deck container. The top card is
+  // centered inside it via &__top below.
+  &__pile {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    cursor: default;
+    position: relative;
+    width: 110px;
+    height: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 120ms ease, filter 160ms ease;
+
+    // Player's piles are draggable when they have a card. Legal plays glow
+    // purple as a heads-up; the grab cursor only appears on draggable tops.
+    &[data-owner='player'] {
+      &[data-draggable='true'] {
+        cursor: grab;
+        touch-action: none; // stop the browser scrolling on touch-drag
+        &:active { cursor: grabbing; }
+      }
+      &[data-legal='true'] {
+        filter: drop-shadow(0 0 8px rgba(200, 150, 255, 0.9));
+      }
+      &:hover[data-legal='true'] { transform: translateY(-4px); }
+      // While this pile's card is being dragged, dim the source so the
+      // origin reads clearly and the ghost feels like it "left" the pile.
+      &[data-drag-source='true'] {
+        opacity: 0.35;
+      }
+      // Empty player slot that can currently be filled by sliding a card
+      // from another pile. Soft pulsing green cue — present whenever the
+      // move is legal, not just during an active drag. Uses box-shadow
+      // (not drop-shadow) because the empty slot is a dashed outline with
+      // no opaque pixels for drop-shadow to trace.
+      &[data-fillable='true'] {
+        border-radius: 8px;
+        animation: spit-fillable-pulse 1800ms ease-in-out infinite;
+      }
+      // Empty player slot lit up as a valid drop target during a drag.
+      // Brighter, steady glow overrides the idle pulse.
+      &[data-drop-active='true'] {
+        animation: none;
+        border-radius: 8px;
+        box-shadow: 0 0 16px 4px rgba(120, 255, 180, 0.85);
+        background: rgba(120, 255, 180, 0.12);
+        transform: translateY(-2px);
+      }
+    }
+
+    // Navi's piles are read-only. Use a subtler amber tint so the human
+    // sees which of her cards are currently playable — "heads-up: navi
+    // can drop this" — without confusing it with their own legal cue.
+    &[data-owner='navi'] {
+      cursor: default;
+      &[data-legal='true'] {
+        filter: drop-shadow(0 0 6px rgba(255, 200, 110, 0.55));
+      }
+    }
+
+    &[data-flashing='true'] {
+      animation: spit-flash 260ms ease;
+    }
+
+    &[data-highlight='true'] {
+      animation: spit-highlight 380ms ease;
+    }
+  }
+
+  // Face-down card behind the top. Absolutely centred inside the oversized
+  // &__pile container, then offset + rotated by the inline jitter style.
+  &__understack {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top: -50px;   // half of 100px
+    margin-left: -37.5px; // half of 75px
+    width: 75px;
+    height: 100px;
+    pointer-events: none;
+  }
+
+  // Top card slot — always sits dead-centre of the oversized pile container
+  // so regardless of how messy the understack gets underneath, the playable
+  // top reads as a clear, square-on card.
+  &__top {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top: -50px;
+    margin-left: -37.5px;
+    width: 75px;
+    height: 100px;
+  }
+
+  &__pile-count {
+    position: absolute;
+    bottom: -1.1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    opacity: 0.7;
+    letter-spacing: 0.05em;
+  }
+
+  // Face-down spit reserve at the end of each row.
+  &__spit {
+    position: relative;
+    width: 75px;
+    height: 100px;
+    justify-self: center;
+  }
+
+  &__spit-count {
+    position: absolute;
+    bottom: -1.1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    opacity: 0.7;
+    letter-spacing: 0.05em;
+  }
+
+  &__center {
+    display: flex;
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+  }
+
+  &__center-pile {
+    position: relative;
+    width: 75px;
+    height: 100px;
+    transition: filter 160ms ease, transform 120ms ease;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+
+    &[data-highlight='true'] {
+      animation: spit-center-pulse 380ms ease;
+    }
+
+    // Slap phase — both centre piles become big clickable targets with a
+    // pulsing purple glow. Hover bumps them up a notch so it reads as "tap
+    // me now".
+    &[data-slappable='true'] {
+      cursor: pointer;
+      filter: drop-shadow(0 0 10px rgba(200, 150, 255, 0.85));
+      animation: spit-slap-pulse 0.9s ease-in-out infinite;
+    }
+    &[data-slappable='true']:hover {
+      transform: translateY(-6px);
+    }
+  }
+
+  // Floating ghost card that follows the cursor during drag. Rendered in a
+  // portal on document.body so it can escape the modal's stacking context.
+  &__ghost {
+    position: fixed;
+    width: 75px;
+    height: 100px;
+    pointer-events: none;
+    z-index: 1000;
+    transform: translate(-50%, -50%) rotate(-3deg) scale(1.06);
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5));
+    transition: transform 60ms ease;
+  }
+
+  &__empty {
+    width: 75px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    opacity: 0.45;
+  }
+
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+  }
+
+  &__message {
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    min-height: 1.4em;
+    text-align: center;
+  }
+
+  // Sits inline alongside the SPIT button so controls stay in one row.
+  &__actions {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  &__action {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: inherit;
+    padding: 0.55rem 1.6rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 120ms ease, transform 120ms ease;
+    font-family: inherit;
+
+    &:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+    &:disabled { opacity: 0.35; cursor: default; }
+    &:not(:disabled) {
+      animation: spit-action-pulse 1.2s ease-in-out infinite;
+    }
+
+    // Primary call-to-action (e.g. the pre-game start button). Same size as
+    // the regular action button so the footer row layout stays stable when
+    // it swaps for the SPIT button.
+    &--primary {
+      background: linear-gradient(135deg, #b084e0 0%, #8a5ccc 100%);
+      border-color: transparent;
+      color: #fff;
+      &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #c598f0 0%, #9a6cdc 100%);
+      }
+    }
+  }
+}
+
+// ─── Card faces (duplicated from War for style isolation) ─────────────────────
+.card {
+  width: 75px;
+  height: 100px;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  font-family: inherit;
+  animation: spit-card-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  &--red   { color: #d40f14; }
+  &--black { color: #111; }
+
+  &__suit {
+    font-size: 0.95rem;
+    font-weight: 500;
+    position: absolute;
+    padding-left: 6px;
+    padding-right: 6px;
+    &--top    { top: 4px; left: 0; }
+    &--bottom { bottom: 4px; right: 0; transform: rotate(180deg); }
+  }
+
+  &__number {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    font-weight: 400;
+  }
+
+  &--back {
+    background: transparent;
+  }
+
+  &__pattern {
+    position: absolute;
+    inset: 5px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.08) 0 3px,
+        transparent 3px 6px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.08) 0 3px,
+        transparent 3px 6px
+      );
+  }
+}
+
+// ─── Animations ───────────────────────────────────────────────────────────────
+@keyframes spit-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes spit-card-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+@keyframes spit-flash {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(-4px, 0); }
+  75%      { transform: translate(4px, 0); }
+}
+
+@keyframes spit-highlight {
+  0%   { filter: drop-shadow(0 0 0 rgba(180, 130, 255, 0)); transform: translateY(0); }
+  50%  { filter: drop-shadow(0 0 10px rgba(180, 130, 255, 0.95)); transform: translateY(-3px); }
+  100% { filter: drop-shadow(0 0 0 rgba(180, 130, 255, 0)); transform: translateY(0); }
+}
+
+@keyframes spit-center-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.06); filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6)); }
+  100% { transform: scale(1); }
+}
+
+@keyframes spit-action-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(180, 130, 255, 0); }
+  50%      { box-shadow: 0 0 0 6px rgba(180, 130, 255, 0.25); }
+}
+
+@keyframes spit-fillable-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px 1px rgba(120, 255, 180, 0.35);
+    background: rgba(120, 255, 180, 0.04);
+  }
+  50% {
+    box-shadow: 0 0 14px 3px rgba(120, 255, 180, 0.75);
+    background: rgba(120, 255, 180, 0.12);
+  }
+}
+
+@keyframes spit-slap-pulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(200, 150, 255, 0.6)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(200, 150, 255, 1)); }
+}
+
+@media (max-width: 640px) {
+  .spit__row {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+  .spit__piles { flex-wrap: wrap; }
+}

@@ -15,6 +15,7 @@ import { tickFairy } from './behavior/behavior.fsm';
 import { registerBrushes } from './brush/brushSetup';
 import { pointer } from './input/pointer';
 import { addPollenStamp, addFairyPollenStamp, tickPollenTrail, drawPollenTrail } from './pollen';
+import { navArea } from './navArea';
 
 const INITIAL_FAIRY_COUNT = 1;
 
@@ -66,9 +67,18 @@ export function makeSketch(callbacks: SketchCallbacks = {}): (p: p5) => void {
       drawPollenTrail(p, now);
 
       for (const fairy of fairies) {
+        // Pull mood from the navArea singleton each frame so React-driven
+        // game-end signals surface through the FSM.
+        fairy.mood = navArea.currentMood;
         tickFairy({ fairy, pointer, dt, detectRadius: R, now, noise, world, allFairies: fairies });
-        // Emit pollen from navi's own position while she's circling the nav links.
-        if (fairy.fsm.kind === 'navOrbit') {
+        // Emit pollen while navi is holding for the game prompt OR doing her
+        // victory lap. (navOrbit is legacy — kept in the union for typing but
+        // no longer reached at runtime.)
+        if (
+          fairy.fsm.kind === 'navOrbit' ||
+          fairy.fsm.kind === 'celebrate' ||
+          fairy.fsm.kind === 'gameIdle'
+        ) {
           addFairyPollenStamp(fairy.pos.x, fairy.pos.y, now);
         }
       }
