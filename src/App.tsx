@@ -56,6 +56,28 @@ function App() {
   //   shows NavMenu + locks sections to final state so nav clicks don't replay animations
   const [revealComplete, setRevealComplete] = useState(false);
 
+  const routesRef       = useRef<HTMLDivElement>(null);
+  const routesInnerRef  = useRef<HTMLDivElement>(null);
+
+  // Measure the routed content height and push it to --section-h on the outer
+  // wrapper so the nav can position itself via a transitioned translateY.
+  // Using `top: calc(100% + 8px)` doesn't transition — 100% resolves against
+  // the parent's computed height which jumps instantly on route swap. Driving
+  // a transform off a CSS variable lets the transition on .nav-menu interpolate
+  // the new offset smoothly.
+  useEffect(() => {
+    const inner = routesInnerRef.current;
+    const outer = routesRef.current;
+    if (!inner || !outer) return;
+    const apply = () => {
+      outer.style.setProperty('--section-h', `${inner.offsetHeight}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, []);
+
   const [navOpen, setNavOpen] = useState(false);
   const [palette, setPalette] = useState<string[]>([]);
   const [activeCompany,  setActiveCompany]  = useState<string | null>(null);
@@ -131,14 +153,16 @@ function App() {
       />
       <FairyCanvas onFairyClick={handleFairyClick} navOpen={navOpen} />
       <main className={mainClass}>
-        <div className="app__routes">
-          <Suspense fallback={null}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-            </Routes>
-          </Suspense>
+        <div className="app__routes" ref={routesRef}>
+          <div className="app__routes-inner" ref={routesInnerRef}>
+            <Suspense fallback={null}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+              </Routes>
+            </Suspense>
+          </div>
           <NavMenu
             open={navOpen}
             ready={revealComplete}

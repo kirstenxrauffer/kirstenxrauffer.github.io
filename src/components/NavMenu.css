@@ -28,9 +28,14 @@
 /* ── Nav container ─────────────────────────────────────────────────────── */
 .nav-menu {
   position: absolute;
-  top: calc(100% + 8px);
+  /* --section-h is set by the ResizeObserver in App.tsx to the routed
+     content's pixel height. Transitioning the transform (rather than `top`,
+     which can't interpolate through a calc(100% + 8px) parent-height jump)
+     lets the nav glide into place on route change. */
+  top: 8px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, var(--section-h, 0px));
+  transition: transform 3000ms cubic-bezier(0.2, 0.8, 0.2, 1);
   z-index: 3;
   display: flex;
   flex-direction: row;
