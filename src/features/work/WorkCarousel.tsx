@@ -267,12 +267,14 @@ function TitleThumb({ index, label, onClick, brandColor }: TitleThumbProps) {
     wordCount === 2 ? 'wc-thumb--title-md' :
     'wc-thumb--title-lg';
 
-  // Deterministic font per project — summed char codes mod pool length so
-  // each label always maps to the same font regardless of render order.
-  // labelHash is also reused by TitleFrames to pick a frame style + seed its jitter,
-  // so every render of the same project yields the same font AND the same frame.
-  const labelHash = Array.from(label).reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const titleFont = TITLE_FONTS[labelHash % TITLE_FONTS.length];
+  // Random per mount: font pick and frame seed are re-rolled each load so the
+  // same project shows a different font + brush frame every time the carousel
+  // opens. Stable within a single mount via useMemo([]) so re-renders don't
+  // reshuffle mid-view.
+  const { titleFont, labelHash } = useMemo(() => ({
+    titleFont: TITLE_FONTS[Math.floor(Math.random() * TITLE_FONTS.length)],
+    labelHash: Math.floor(Math.random() * 0x7fffffff),
+  }), []);
 
   return (
     <button
