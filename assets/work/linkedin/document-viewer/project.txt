@@ -7,7 +7,6 @@ engineering notes (from co-authored blog post):
 - Documents processed via Vector (LinkedIn's media platform) → Microsoft Binary Conversion → per-page image rendering at multiple resolutions
 - Text overlay via CSS-positioned transparent layer using PDF.js for selectability, search, and screen reader support
 - Real-time page progress tracked via Espresso-based databases; green tick marks show viewed pages
-- ~50 people across 15 teams, 6+ months of development
 
 accessibility notes:
 - Led accessibility for the centralized document viewer, which was the shared component adopted across LinkedIn surfaces including Feed, Learning, Recruiter, and others

@@ -1,4 +1,4 @@
-Worked on a Dynamics 365 implementation building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest.
+Worked on the Dynamics 365 project building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest.
 
 As the office began venturing into building custom single-page applications to solve specialized problems in the space, I taught web development internally. That work included consolidated, plug-and-play vendor portals built in C++ and AngularJS.
 

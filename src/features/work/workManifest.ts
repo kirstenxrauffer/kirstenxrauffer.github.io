@@ -206,7 +206,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'document-viewer',
         label: 'document viewer',
-        description: 'Built the document viewer for LinkedIn Learning, enabling enterprises to upload custom documents for their employees to view — with Recruiter looking to adopt it too. Built framework-agnostic in vanilla JS (~50 people across 15 teams, 6+ months). Led accessibility work for the document viewer, adapting Mozilla\'s PDF.js to parse tagged PDFs as semantic HTML for screen readers. Co-authored the <a href="https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents" target="_blank" rel="noopener noreferrer">LinkedIn Engineering blog post</a> on the architecture. Nominated for LinkedIn\'s Engineering Award for Craftsmanship, one of 4 nominees out of 4,000+ engineers.',
+        description: 'Built the document viewer in its final, accessible for LinkedIn Learning, enabling enterprises to upload custom documents for their employees to view. Built framework-agnostic in vanilla JS. Led accessibility work for the document viewer, adapting Mozilla\'s PDF.js to parse tagged PDFs as semantic HTML for screen readers. Co-authored the <a href="https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents" target="_blank" rel="noopener noreferrer">LinkedIn Engineering blog post</a> on the architecture. Nominated for LinkedIn\'s Engineering Award for Craftsmanship, one of 4 nominees out of 4,000+ engineers.',
         skills: ['React', 'TypeScript', 'Accessibility', 'Java', 'Performance'],
         leadership: ['Engineering Award nominee', 'Co-authored eng blog post', 'Cross-org a11y lead'],
         assets: [
@@ -248,7 +248,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'dynamics365',
         label: 'dynamics 365',
-        description: 'Worked on a Dynamics 365 implementation building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest. As the office began venturing into custom SPAs, I taught web development internally to prep colleagues for new POC projects focused on solutioning for vendor portals, built in C++ and AngularJS.',
+        description: 'Worked on the Dynamics 365 product building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest. As the office began venturing into custom SPAs, I taught web development internally to prep colleagues for new POC projects focused on solutioning for vendor portals, built in C++ and AngularJS.',
         skills: ['Dynamics 365', 'C++', 'AngularJS', 'ERP'],
         leadership: ['Internal engineering trainer'],
         assets: [
