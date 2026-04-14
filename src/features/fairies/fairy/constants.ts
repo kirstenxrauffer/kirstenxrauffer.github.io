@@ -95,7 +95,7 @@ export const WANDER_SPEED = 25; // px/s
 export const APPROACH_SPEED = 60; // px/s
 export const MAX_STEER_RATE = 1.5; // rad/s
 export const ARRIVAL_TOLERANCE = 8; // px — arrival at standoff point
-export const STANDOFF_DIST = 20; // px — distance from cursor at which approach ends
+export const STANDOFF_DIST = 45; // px — distance from cursor at which approach ends; matches ORBIT_RADIUS_BASE for smooth handoff
 export const APPROACH_BRAKE_DIST = 90; // px — distance from standoff at which braking begins
 export const HYSTERESIS = 15; // px beyond detectRadius before orbit → WANDER
 export const EDGE_AVOID = 40; // px
@@ -104,9 +104,11 @@ export const FAIRY_SCALE = 0.25; // world px per local unit; 33 * 3.5 ≈ 115px 
 
 // Orbit constants — entered immediately after the fairy reaches the standoff point.
 // Radius oscillates with two overlapping sines starting at 0 (phase=0 → r=ORBIT_RADIUS_BASE).
+// BASE and VARIANCE are tuned so the absolute min radius (BASE − 1.5·VARIANCE)
+// is 30 px, keeping navi at least 30 px from the cursor at all times.
 export const ORBIT_ANGULAR_SPEED  = 0.5;  // rad/s — ~12.5 s per full orbit
-export const ORBIT_RADIUS_BASE    = 30;   // px from cursor; initial orbit radius
-export const ORBIT_RADIUS_VARIANCE = 15;  // px; range ≈ 7–52 px from cursor
+export const ORBIT_RADIUS_BASE    = 45;   // px from cursor; initial orbit radius
+export const ORBIT_RADIUS_VARIANCE = 10;  // px; range ≈ 30–60 px from cursor
 export const ORBIT_PHASE_SPEED    = 0.3;  // rad/s — radius oscillation period ≈ 21 s
 export const ORBIT_SPEED          = 60;   // px/s — chase speed for orbit target
 
@@ -114,6 +116,15 @@ export const ORBIT_SPEED          = 60;   // px/s — chase speed for orbit targ
 export const FLEE_SPEED        = 80;   // px/s — brisk departure
 export const FLEE_ARRIVAL_DIST = 50;   // px — close enough to the flee target to switch to wander
 export const NAV_AVOID_RADIUS  = 180;  // px — bubble around nav click pos navi stays outside
+
+// NavOrbit constants — entered when the user opens the nav by clicking navi.
+// Navi cycles through the captured nav-link positions, orbiting each in turn,
+// and exits when the menu closes.
+export const NAV_TRAVEL_SPEED      = 280; // px/s — brisk approach to the next link
+export const NAV_TRAVEL_ARRIVAL    = 6;   // px past the orbit ring before engaging orbit
+export const NAV_ORBIT_RADIUS      = 70;  // px — distance from link centre while orbiting
+export const NAV_ORBIT_ANG_SPEED   = 2.6; // rad/s — quick, halo-like circling
+export const NAV_ORBIT_REVOLUTIONS = 1;   // full turns to complete before advancing
 
 // Center-text avoidance — keeps the fairy out of the viewport's central content zone.
 // Fractions of viewport width/height define the ellipse semi-axes.

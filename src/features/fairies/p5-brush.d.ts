@@ -8,7 +8,10 @@ declare module 'p5.brush' {
   // Canonical param shape for brush.add(). Accepts both canonical and
   // legacy keys; p5.brush normalizes internally.
   export type BrushParams = {
-    type?: 'marker' | 'custom' | 'image' | 'spray';
+    // 'default' is the implicit fallback in p5.brush v2 (stroke.js:169 — any
+    // type not in validTypes maps to 'default'). Keeping it in the union lets
+    // call sites express intent without a cast.
+    type?: 'default' | 'marker' | 'custom' | 'image' | 'spray';
     weight?: number;
     scatter?: number;
     vibration?: number; // legacy alias for scatter
@@ -20,19 +23,34 @@ declare module 'p5.brush' {
     spacing?: number;
     noise?: number;
     markerTip?: boolean;
-    rotate?: 'natural' | 'random' | number;
+    rotate?: 'natural' | 'random' | 'none' | number;
     tip?: unknown;
-    pressure?: {
-      type?: 'custom' | 'gaussian';
-      mode?: 'custom' | 'gaussian'; // legacy alias for type
-      curve?: [number, number] | [number, number, number] | ((t: number) => number);
-      min_max?: [number, number];
-    };
+    // README §pressure: simple tuple form is the easiest path. The advanced
+    // gaussian object form is also accepted.
+    pressure?:
+      | [number, number]
+      | [number, number, number]
+      | ((t: number) => number)
+      | {
+          type?: 'custom' | 'gaussian';
+          mode?: 'custom' | 'gaussian'; // legacy alias for type
+          curve?: [number, number] | [number, number, number] | ((t: number) => number);
+          min_max?: [number, number];
+        };
     image?: unknown;
   };
 
   // Register a p5 instance (instance-mode). Must be called BEFORE setup().
   export function instance(p: p5): void;
+
+  // Re-resolve the active drawing target and refresh compositing resources.
+  // p5.brush gates internal target init behind a one-shot `_isReady` flag in
+  // adapters/p5/target.js — once set, the global `Renderer` reference never
+  // re-binds on its own. When multiple p5 instances are created and torn
+  // down in the same session (e.g. sticky-note dividers across project
+  // switches), calling brush.load() per draw re-points the Renderer at the
+  // current instance instead of the stale, removed first one.
+  export function load(buffer?: false | unknown): void;
 
   // Register a custom brush.
   export function add(name: string, params: BrushParams): void;

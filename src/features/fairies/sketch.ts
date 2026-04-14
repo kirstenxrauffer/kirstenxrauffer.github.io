@@ -14,7 +14,7 @@ import { drawPupil, drawSclera } from './fairy/eyes';
 import { tickFairy } from './behavior/behavior.fsm';
 import { registerBrushes } from './brush/brushSetup';
 import { pointer } from './input/pointer';
-import { addPollenStamp, tickPollenTrail, drawPollenTrail } from './pollen';
+import { addPollenStamp, addFairyPollenStamp, tickPollenTrail, drawPollenTrail } from './pollen';
 
 const INITIAL_FAIRY_COUNT = 1;
 
@@ -67,6 +67,10 @@ export function makeSketch(callbacks: SketchCallbacks = {}): (p: p5) => void {
 
       for (const fairy of fairies) {
         tickFairy({ fairy, pointer, dt, detectRadius: R, now, noise, world, allFairies: fairies });
+        // Emit pollen from navi's own position while she's circling the nav links.
+        if (fairy.fsm.kind === 'navOrbit') {
+          addFairyPollenStamp(fairy.pos.x, fairy.pos.y, now);
+        }
       }
       let anyHovered = false;
       for (const fairy of fairies) {

@@ -44,6 +44,7 @@ uniform float     uAbstraction;    // painterly blur radius in pixels (default 5
 uniform float     uBlotchiness;    // Kuwahara sector sharpness — lower = flatter distinct pools (default 0.12)
 uniform float     uWobbleStrength; // paper-gradient UV wobble amplitude — higher = wavier lines (default 0.02)
 uniform float     uWarpDisplace;   // fBm warp UV offset — adds large-scale organic noise/spread (default 0.0)
+uniform float     uClearProgress;  // center clear-zone fade [0,1] — animates ahead of uProgress so ring + white blotch bloom before image reveal
 uniform sampler2D uPetals;         // Petal render target (RGBA) — transparent where no petal is drawn
 
 // --- Constants (not worth exposing as uniforms) -----------------------------
@@ -331,8 +332,8 @@ vec3 revealMask(vec2 uv, float warpField, vec2 warpRg, out float W) {
 // CLEAR_FADE     = 0.12 (narrower than uRevealSpread so center is fully white).
 // ---------------------------------------------------------------------------
 float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingColor) {
-    const float CLEAR_PROGRESS = 0.18;  // ring radius
-    const float WHITE_PROGRESS = 0.30;  // white fade radius (larger than ring)
+    const float CLEAR_PROGRESS = 0.16;  // ring radius
+    const float WHITE_PROGRESS = 0.27;  // white fade radius (larger than ring)
     const float CLEAR_FADE     = 0.18;
 
     // Identical origin to revealMask — same fBm-offset bloom point.
@@ -352,20 +353,36 @@ float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingCol
     // to a shape that is taller than wide on narrow screens — a UV distance of 0.30
     // spans only 117 px horizontally but 253 px vertically on a 390×844 device.
     // Dividing diff.x by 1/aspect restores a screen-space circle on portrait.
-    // Clamped to [1, 2]: no effect on landscape/desktop, activates only on portrait.
-    float viewAspect = uResolution.x / uResolution.y;
-    float xStretch = clamp(1.0 / viewAspect, 1.0, 2.0);
+    //
+    // On landscape/desktop: squeeze x by 25 px per side so the legibility blotch
+    // is a touch narrower horizontally (feels too wide on wide viewports).
+    float viewAspect     = uResolution.x / uResolution.y;
+    float portraitStretch = clamp(1.0 / viewAspect, 1.0, 2.0);
+    float desktopSqueeze  = 1.0 - 25.0 / (uResolution.x * WHITE_PROGRESS);
+    float xStretch        = viewAspect > 1.0 ? desktopSqueeze : portraitStretch;
+    // Mobile/portrait only: extend vertical extent by 15 px total (7.5 px per side).
+    float mobileYStretch  = viewAspect < 1.0 ? 1.0 + 7.5 / (uResolution.y * WHITE_PROGRESS) : 1.0;
+    // On portrait/mobile: shift the clear zone so it sits better under the main
+    // content. portraitFactor is 0 on landscape, ~1 on a tall phone (390×844).
+    // Y: 0.036 UV × 844 px ≈ 30 px down.
+    // X: 0.085 UV × 390 px ≈ 33 px right.
+    float portraitFactor = clamp(1.0 / viewAspect - 1.0, 0.0, 1.0);
+    origin.y -= portraitFactor * 0.036;
+    origin.x += portraitFactor * 0.085;
 
     // Damped warp: full influence (±0.26) can triple the zone size on negative warpField.
     // Cap at 30% of uWarpInfluence so the boundary stays organic but compact.
     vec2 diff = uv - origin;
     diff.x /= xStretch;
+    diff.y /= mobileYStretch;
     float front = length(diff) + uWarpInfluence * 0.3 * warpField + grainDisplace;
 
     // Animate the clear zone radius so the white fade and ring grow together.
     // clearRingFade drives both: the white zone expands from 0 → CLEAR_PROGRESS
     // while the ring tracks that same animated boundary — they appear and grow simultaneously.
-    float clearRingFade     = clamp(uProgress / 0.5, 0.0, 1.0);
+    // Driven by uClearProgress (independent of uProgress) so the clear zone blooms
+    // on page load before the image reveal starts.
+    float clearRingFade     = uClearProgress;
     float animatedClearProg = CLEAR_PROGRESS * clearRingFade;  // ring boundary
     float animatedWhiteProg = WHITE_PROGRESS * clearRingFade;  // white zone boundary
 
@@ -386,8 +403,12 @@ float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingCol
     // Tide-mark ring — tracks the animated clear zone boundary so it and the
     // white fade always grow together. Uses a more-warped front for extra wobble.
     // Same x-stretch as `front` above so the ring traces the white zone edge.
+    // Extra 10% horizontal squeeze on desktop — the ring's stronger warp (1.0 vs
+    // 0.3) makes it wobble wider than the white fade, so pinch it in further.
     vec2 ringDiff = uv - origin;
-    ringDiff.x /= xStretch;
+    float ringXStretch = viewAspect > 1.0 ? xStretch * 0.90 : xStretch;
+    ringDiff.x /= ringXStretch;
+    ringDiff.y /= mobileYStretch;
     float ringFront     = length(ringDiff) + uWarpInfluence * 1.0 * warpField + grainDisplace * 3.0;
     float ringRadius    = animatedClearProg;
     float ring          = 1.0 - smoothstep(0.0, 0.010, abs(ringFront - ringRadius));

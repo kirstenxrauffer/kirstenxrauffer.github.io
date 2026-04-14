@@ -13,7 +13,22 @@ export type FSMState =
   | { kind: 'wander'; nextHeadingAt: number }
   | { kind: 'approach'; target: Vec2; enteredAt: number }
   | { kind: 'orbit'; orbitAngle: number; orbitPhase: number; orbitDir: 1 | -1 }
-  | { kind: 'flee'; targetPos: Vec2 };
+  | { kind: 'flee'; targetPos: Vec2 }
+  | {
+      kind: 'navOrbit';
+      links: Vec2[];
+      current: number;
+      phase: 'travel' | 'orbit';
+      orbitAngle: number;
+      orbitTurn: number;
+      orbitDir: 1 | -1;
+      // Travel phase: orbit centre lerps from travelFrom → links[current] over
+      // travelDuration, while orbitAngle keeps advancing — produces one
+      // continuous swirling path between buttons rather than a diagonal cut.
+      travelFrom: Vec2;
+      travelT: number;
+      travelDuration: number;
+    };
 
 export type FlipStyle = 'pitch' | 'yaw';
 

@@ -39,6 +39,10 @@ import {
   NAV_AVOID_RADIUS,
   CENTER_AVOID_RX_FRAC,
   CENTER_AVOID_RY_FRAC,
+  NAV_TRAVEL_SPEED,
+  NAV_ORBIT_RADIUS,
+  NAV_ORBIT_ANG_SPEED,
+  NAV_ORBIT_REVOLUTIONS,
 } from '../fairy/constants';
 import type { Pointer } from '../input/pointer';
 import { navArea } from '../navArea';
@@ -204,6 +208,74 @@ function centerAvoidBias(fairy: Fairy, world: World): number | null {
   return Math.atan2(dy, dx);
 }
 
+// ─── NavOrbit helpers ─────────────────────────────────────────────────────────
+
+/**
+ * NavOrbit ticks: navi *always* orbits a centre at NAV_ORBIT_RADIUS. While
+ * orbiting a link the centre is fixed at that link; during travel the centre
+ * smoothstep-lerps from the previous link to the next. Because orbitAngle keeps
+ * advancing through both phases, the path is one continuous swirl that loops
+ * around each button and arcs cleanly between them — no diagonal cuts.
+ */
+function tickNavOrbit(fairy: Fairy, dt: number): void {
+  const fsm = fairy.fsm as Extract<FSMState, { kind: 'navOrbit' }>;
+  if (fsm.links.length === 0) return;
+  const link = fsm.links[fsm.current];
+
+  // Always advance the orbit angle so motion stays smooth across phases.
+  const angStep = NAV_ORBIT_ANG_SPEED * dt * fsm.orbitDir;
+  fsm.orbitAngle += angStep;
+
+  // Resolve this frame's orbit centre.
+  let cx: number;
+  let cy: number;
+  let centerSpeed = 0; // px/s — added to navi's chase speed during travel.
+  if (fsm.phase === 'travel') {
+    fsm.travelT = Math.min(1, fsm.travelT + dt / fsm.travelDuration);
+    // Smoothstep: gentle ease in/out so the centre doesn't lurch.
+    const e = fsm.travelT * fsm.travelT * (3 - 2 * fsm.travelT);
+    cx = fsm.travelFrom.x + (link.x - fsm.travelFrom.x) * e;
+    cy = fsm.travelFrom.y + (link.y - fsm.travelFrom.y) * e;
+    const segDist = Math.hypot(link.x - fsm.travelFrom.x, link.y - fsm.travelFrom.y);
+    centerSpeed = segDist / fsm.travelDuration;
+    if (fsm.travelT >= 1) {
+      fsm.phase = 'orbit';
+      fsm.orbitTurn = 0;
+    }
+  } else {
+    cx = link.x;
+    cy = link.y;
+    fsm.orbitTurn += Math.abs(angStep);
+    if (fsm.orbitTurn >= NAV_ORBIT_REVOLUTIONS * Math.PI * 2) {
+      // Hand off to the next link: travel from current centre, keep orbitAngle
+      // continuous so navi swings out of orbit naturally.
+      const nextIdx = (fsm.current + 1) % fsm.links.length;
+      const next = fsm.links[nextIdx];
+      const segDist = Math.hypot(next.x - cx, next.y - cy);
+      fsm.travelFrom = { x: cx, y: cy };
+      fsm.current = nextIdx;
+      fsm.phase = 'travel';
+      fsm.travelT = 0;
+      fsm.travelDuration = Math.max(0.4, segDist / NAV_TRAVEL_SPEED);
+    }
+  }
+
+  // Target sits on the orbit ring around the (possibly moving) centre.
+  const targetX = cx + Math.cos(fsm.orbitAngle) * NAV_ORBIT_RADIUS;
+  const targetY = cy + Math.sin(fsm.orbitAngle) * NAV_ORBIT_RADIUS;
+  const dx = targetX - fairy.pos.x;
+  const dy = targetY - fairy.pos.y;
+  if (dx * dx + dy * dy > 0.25) fairy.heading = Math.atan2(dy, dx);
+
+  // Tangential orbit speed (ω·r) plus centre-translation speed during travel
+  // so navi keeps up with the moving target without falling behind the ring.
+  const speed = NAV_ORBIT_ANG_SPEED * NAV_ORBIT_RADIUS + centerSpeed;
+  fairy.vel.x = Math.cos(fairy.heading) * speed;
+  fairy.vel.y = Math.sin(fairy.heading) * speed;
+}
+
+// ─── Flee helpers ─────────────────────────────────────────────────────────────
+
 /** Fly toward fsm.targetPos at FLEE_SPEED, braking as navi closes in. */
 function tickFlee(fairy: Fairy, dt: number): void {
   const fsm = fairy.fsm as Extract<FSMState, { kind: 'flee' }>;
@@ -244,6 +316,41 @@ export function tickFairy(args: TickArgs): void {
 
   // Eye look-at target: depends on state — set below.
   let eyeTarget: Vec2 | null = null;
+
+  // NavOrbit request has highest priority: interrupts any current state.
+  // Triggered only on the click that OPENS the nav (FairyCanvas guards this).
+  if (navArea.zoomRequested && fairy.fsm.kind !== 'navOrbit') {
+    navArea.zoomRequested = false;
+    if (navArea.navLinks.length > 0) {
+      const links = navArea.navLinks.map(p => ({ x: p.x, y: p.y }));
+      const firstLink = links[0];
+      // Seed orbitAngle from navi's current angular position around the first
+      // link, and place travelFrom one orbit-radius behind navi along that ray.
+      // That way at travelT=0 the orbit target lands exactly on navi's current
+      // position — no initial snap.
+      const initialAngle = Math.atan2(
+        fairy.pos.y - firstLink.y,
+        fairy.pos.x - firstLink.x,
+      );
+      const travelFrom: Vec2 = {
+        x: fairy.pos.x - Math.cos(initialAngle) * NAV_ORBIT_RADIUS,
+        y: fairy.pos.y - Math.sin(initialAngle) * NAV_ORBIT_RADIUS,
+      };
+      const dist = Math.hypot(firstLink.x - travelFrom.x, firstLink.y - travelFrom.y);
+      fairy.fsm = {
+        kind: 'navOrbit',
+        links,
+        current: 0,
+        phase: 'travel',
+        orbitAngle: initialAngle,
+        orbitTurn: 0,
+        orbitDir: Math.random() < 0.5 ? 1 : -1,
+        travelFrom,
+        travelT: 0,
+        travelDuration: Math.max(0.4, dist / NAV_TRAVEL_SPEED),
+      };
+    }
+  }
 
   switch (fairy.fsm.kind) {
     case 'wander':
@@ -323,6 +430,19 @@ export function tickFairy(args: TickArgs): void {
         break;
       }
       tickFlee(fairy, dt);
+      break;
+    }
+
+    case 'navOrbit': {
+      // Exit when the nav closes — back to normal wandering.
+      if (!navArea.active) {
+        fairy.fsm = { kind: 'wander', nextHeadingAt: now + 200 };
+        break;
+      }
+      // Eyes track the link navi is currently visiting/orbiting.
+      const fsm = fairy.fsm as Extract<FSMState, { kind: 'navOrbit' }>;
+      eyeTarget = fsm.links[fsm.current] ?? null;
+      tickNavOrbit(fairy, dt);
       break;
     }
   }

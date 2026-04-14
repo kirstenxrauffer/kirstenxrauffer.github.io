@@ -32,7 +32,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'super-reactions',
         label: 'super reactions',
-        description: 'Nitro feature that fires an animated burst effect when reacting to a message, visible to everyone in the chat. Animations were built with Lottie; we extracted the top colors from each emoji and piped them directly into the animation so a fire emoji bursts in orange, a purple heart ripples in violet, and so on, making each animation unique. Official demo: <a href="https://youtube.com/watch?v=IIRLMV9SZds" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=IIRLMV9SZds</a> · <a href="https://discord.com/blog/super-reactions-make-emoji-burst-to-life-discord-nitro" target="_blank" rel="noopener noreferrer">discord.com/blog/super-reactions-make-emoji-burst-to-life-discord-nitro</a>',
+        description: 'Nitro feature that fires an animated burst effect when reacting to a message, visible to everyone in the chat. Animations were built with Lottie; we extracted the top colors from each emoji and piped them directly into the animation so a fire emoji bursts in orange, a purple heart ripples in violet, and so on, making each animation unique. Lead the Mobile Super Reactions work, using Swift, Kotlin, and Objective-C across iOS and Android while operating as the Mobile Champion for the team, and 1 of only 6 mobile engineers on the Discord iOS oncall rotation, handling release preps & releases. Touched core chat surfaces, and gave the mobile both an inline animation, and a full-screen tap animation. Official demo: <a href="https://youtube.com/watch?v=IIRLMV9SZds" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=IIRLMV9SZds</a> · <a href="https://discord.com/blog/super-reactions-make-emoji-burst-to-life-discord-nitro" target="_blank" rel="noopener noreferrer">discord.com/blog/super-reactions-make-emoji-burst-to-life-discord-nitro</a>',
         skills: ['React', 'TypeScript', 'Lottie', 'Animation'],
         assets: [
           '/work/discord/super-reactions/official-demo.gif',
@@ -45,7 +45,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'voice-channel-reactions',
         label: 'voice channel reactions',
-        description: 'Real-time emoji reactions for voice and video calls. Tap an emoji and it animates across the call interface without unmuting. Nitro subscribers get animated cross-server emoji and full-screen scroll effects. Animations were built with Lottie, with the top colors extracted from each emoji and injected at runtime, keeping each animation fresh. Led the mobile implementation; primary developer on desktop. Covered by Adweek: <a href="https://adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/" target="_blank" rel="noopener noreferrer">adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/</a>',
+        description: 'Real-time emoji reactions for voice and video calls. Tap an emoji and it animates across the call interface without unmuting. Nitro subscribers get animated cross-server emoji and full-screen scroll effects. Animations were built with Lottie, with the top colors extracted from each emoji and injected at runtime, keeping each animation fresh. Led the mobile implementation; one of the 2 devs who built this for desktop. Covered by Adweek: <a href="https://adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/" target="_blank" rel="noopener noreferrer">adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/</a>',
         skills: ['React', 'TypeScript', 'Lottie', 'Real-time', 'Mobile'],
         assets: [
           '/work/discord/voice-channel-reactions/voice-channel-reactions.gif',
@@ -55,7 +55,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'entrance-sounds',
         label: 'entrance sounds',
-        description: 'Nitro perk that auto-plays a Soundboard clip when you join a voice channel. The emoji infrastructure from Voice Channel Reactions was seamlessly extended: users pair an emoji with each entrance sound, and the emoji animates across the channel screen the moment they walk in. Primary developer end-to-end. <a href="https://discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds" target="_blank" rel="noopener noreferrer">discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds</a>',
+        description: 'Nitro perk that auto-plays a Soundboard clip when you join a voice channel. The emoji infrastructure from Voice Channel Reactions was seamlessly extended: users pair an emoji with each entrance sound, and the emoji animates across the channel screen the moment they walk in. One of 2 devs who built this across web and mobile. <a href="https://discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds" target="_blank" rel="noopener noreferrer">discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds</a>',
         skills: ['React', 'TypeScript', 'Lottie', 'Mobile', 'Audio UI'],
         assets: [
           '/work/discord/entrance-sounds/entrance-sounds-tiktok.gif',
@@ -66,7 +66,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'custom-app-icons',
         label: 'custom app icons (mobile)',
-        description: 'Nitro feature letting subscribers swap the Discord home screen icon from a curated library, including seasonal drops like Halloween (Avatar → User Settings → App Settings → App Icon). Launched September 2023 with ~20 icons. Advocated internally for users to keep their chosen icon even after Nitro expires, confirmed working in the wild: <a href="https://reddit.com/r/discordapp/comments/1kmcpdk/" target="_blank" rel="noopener noreferrer">reddit.com/r/discordapp/comments/1kmcpdk/</a>. Intentionally built easter eggs to drive organic engagement and discovery: the Pirate icon randomizes its display name on every tap, and a hidden interaction on the settings page has yet to be publicly discovered.',
+        description: 'Nitro feature letting subscribers swap the Discord home screen icon from a curated library, including seasonal drops like Halloween (Avatar → User Settings → App Settings → App Icon). Launched September 2023 with ~20 icons. Advocated internally for users to keep their chosen icon even after Nitro expires, confirmed working in the wild: <a href="https://reddit.com/r/discordapp/comments/1kmcpdk/" target="_blank" rel="noopener noreferrer">reddit.com/r/discordapp/comments/1kmcpdk/</a>. Intentionally built easter eggs to drive organic engagement and discovery: the Pirate icon randomizes its display name on every tap, and a hidden interaction on the settings page has yet to be publicly discovered. Strong adoption and Nitro conversion, making this one of our top perks that our team shipped.',
         skills: ['React Native', 'iOS', 'TypeScript', 'UX Design'],
         leadership: ['Cross-functional advocacy'],
         assets: [
@@ -80,7 +80,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'custom-desktop-icons',
         label: 'custom desktop icons',
-        description: 'Desktop-side implementation of Discord\'s custom app icon Nitro perk (User Settings → Appearance → App Icon). Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, UX, and marketing; adapted mobile icon assets for desktop without support from the core art team; shipped in a single sprint. Advocated for users to keep their chosen icon after Nitro expires, confirmed in the wild: <a href="https://reddit.com/r/discordapp/comments/1kmcpdk/" target="_blank" rel="noopener noreferrer">reddit.com/r/discordapp/comments/1kmcpdk/</a>',
+        description: 'Desktop-side implementation of Discord\'s custom app icon Nitro perk. Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, UX, and marketing; adapted mobile icon assets for desktop without support necessary from the core art team; shipped within 2 single sprints. Strong adoption among our users. Advocated for users to keep their chosen icon after Nitro expires, confirmed in the wild: <a href="https://reddit.com/r/discordapp/comments/1kmcpdk/" target="_blank" rel="noopener noreferrer">reddit.com/r/discordapp/comments/1kmcpdk/</a>',
         skills: ['React', 'Electron', 'TypeScript', 'UX Design'],
         leadership: ['Pitched to Head of Product', 'End-to-end ownership'],
         assets: [
@@ -113,7 +113,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'digital-asset-management',
         label: 'rich content',
-        description: 'Full-stack engineer on the rich content team, supporting Grainger\'s millions of products and all their supporting materials, both static and dynamic: product images, compliance documents like Energy Guides, 2D and 3D CAD files, videos, copy, and more. Sole engineer to decouple the codebase from a massive monorepo, establishing the migration pattern to be adopted by future teams decoupling. Currently improving search and upload UX across all asset types, and building an ML classification pipeline using AWS tooling. The internal system is proprietary.',
+        description: 'Full-stack engineer on the rich content team, supporting Grainger\'s millions of products and all their supporting materials, both static and dynamic: product images, compliance documents like Energy Guides, 2D and 3D CAD files, videos, copy, and more. Sole engineer to decouple the frontend codebase from a massive monorepo, converting it to a microfrontend, paving the way for other engineering teams. Currently improving search and upload UX across all asset types, and building an ML classification pipeline using AWS tooling. The internal system is proprietary.',
         skills: ['Full-stack', 'React', 'TypeScript', 'DAM'],
         assets: [
           '/work/grainger/digital-asset-management/cad.gif',
@@ -130,9 +130,8 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'homepage',
         label: '2.0 card components',
-        description: 'Developed the new 2.0 card components used across the site (homepage and beyond) for mobile and desktop web. Worked closely with accessibility, design, PM, and engineering partners across both product teams and the horizontal design system team. Also delivered the 2.0 bubble navigation.',
+        description: 'Developed the bulk of the new 2.0 card components used across the site for mobile and desktop web on the Home and Listing pages. Worked closely with accessibility, design, PM, and engineering partners across both product teams and the horizontal design system team. Also delivered the 2.0 bubble navigation.',
         skills: ['React', 'TypeScript', 'CSS', 'Accessibility', 'Design Systems'],
-        leadership: ['Cross-team coordination'],
         assets: [
           '/work/ulta/homepage/hero-card.gif',
           '/work/ulta/homepage/product-card.gif',
@@ -158,7 +157,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'document-viewer',
         label: 'document viewer',
-        description: 'Built two document viewers for LinkedIn: one for the Feed, where uploading a PDF, PPT, or Word file lets followers swipe through pages without leaving LinkedIn (drives 3× more clicks than any other post type); and one for LinkedIn Learning, enabling enterprises to upload custom documents for their employees to view. Built framework-agnostic in vanilla JS (~50 people across 15 teams, 6+ months). Led accessibility for the centralized viewer adopted across Feed, Learning, Recruiter, and more: adapted PDF.js to parse tagged PDFs as semantic HTML so screen readers navigate documents structurally rather than hitting a wall of text. Co-authored the LinkedIn Engineering blog post on the architecture. Nominated for LinkedIn\'s Engineering Award for Craftsmanship, one of 4 nominees out of 4,000+ engineers. <a href="https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents" target="_blank" rel="noopener noreferrer">linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents</a>',
+        description: 'Built the document viewer for LinkedIn Learning, enabling enterprises to upload custom documents for their employees to view — with Recruiter looking to adopt it too. Built framework-agnostic in vanilla JS (~50 people across 15 teams, 6+ months). Led accessibility work for the document viewer, adapting Mozilla\'s PDF.js to parse tagged PDFs as semantic HTML for screen readers. Co-authored the <a href="https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents" target="_blank" rel="noopener noreferrer">LinkedIn Engineering blog post</a> on the architecture. Nominated for LinkedIn\'s Engineering Award for Craftsmanship, one of 4 nominees out of 4,000+ engineers.',
         skills: ['React', 'TypeScript', 'Accessibility', 'Java', 'Performance'],
         leadership: ['Engineering Award nominee', 'Co-authored eng blog post', 'Cross-org a11y lead'],
         assets: [
@@ -171,7 +170,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'skills-path',
         label: 'skills path',
-        description: 'Skills-based hiring pipeline on LinkedIn that pairs curated Learning courses with Skill Assessments. Candidates who pass are guaranteed a recruiter interview, removing degree/credential gatekeeping. Piloted with Gap Inc., BlackRock, Citrix, Gusto, and others in 2021. Served as team lead while simultaneously leading UI for the Skill Assessments team. "Helps us connect with candidates faster based on core skills and potential rather than traditional experience or credentials." — Meghan Kelly, Global Head of Talent Acquisition, Gap Inc. Press: <a href="https://shrm.org" target="_blank" rel="noopener noreferrer">SHRM</a>, <a href="https://gapinc.com" target="_blank" rel="noopener noreferrer">Gap Inc. press release</a>, <a href="https://linkedin.com/business/talent/blog/product-tips/introducing-skills-path" target="_blank" rel="noopener noreferrer">LinkedIn blog</a>.',
+        description: 'Skills-based hiring pipeline on LinkedIn that pairs curated Learning courses with Skill Assessments. Candidates who pass are guaranteed a recruiter interview, removing degree/credential gatekeeping. Piloted with Gap Inc., BlackRock, Citrix, Gusto, and others in 2021. Served as team lead while simultaneously leading UI for the Skill Assessments team. Press: <a href="https://shrm.org" target="_blank" rel="noopener noreferrer">SHRM</a>, <a href="https://gapinc.com" target="_blank" rel="noopener noreferrer">Gap Inc. press release</a>, <a href="https://linkedin.com/business/talent/blog/product-tips/introducing-skills-path" target="_blank" rel="noopener noreferrer">LinkedIn blog</a>.',
         skills: ['React', 'TypeScript', 'Full-stack', 'Java'],
         assets: [
           '/work/linkedin/skills-path/1618352849053.jpeg',
@@ -200,7 +199,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'dynamics365',
         label: 'dynamics 365',
-        description: 'Worked on a Dynamics 365 implementation building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest. As the office began venturing into custom SPAs, I taught web development internally, including consolidated, plug-and-play vendor portals built in C++ and AngularJS.',
+        description: 'Worked on a Dynamics 365 implementation building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest. As the office began venturing into custom SPAs, I taught web development internally to prep colleagues for new POC projects focused on solutioning for vendor portals, built in C++ and AngularJS.',
         skills: ['Dynamics 365', 'C++', 'AngularJS', 'ERP'],
         leadership: ['Internal engineering trainer'],
         assets: [

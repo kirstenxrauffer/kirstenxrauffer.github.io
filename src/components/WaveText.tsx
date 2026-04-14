@@ -31,10 +31,10 @@ export function WaveText({
 }: WaveTextProps) {
   const chars = useMemo(() => [...text], [text]);
 
-  // Scatter: random offset within [0, 1.4s]. Animation is 1.8s so total
-  // completion stays ~3.2s — intentionally slower/dreamier than the wave variant.
+  // Scatter: random offset within [0, 0.7s]. Animation is 1.1s so total
+  // completion stays ~1.8s — faster/snappier than the original.
   const scatterOffsets = useMemo(
-    () => chars.map(c => (c === ' ' ? 0 : Math.random() * 1.4)),
+    () => chars.map(c => (c === ' ' ? 0 : Math.random() * 0.7)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [text],
   );

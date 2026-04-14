@@ -6,13 +6,38 @@
  * z-index 20 → above FairyCanvas (13) and app__main (12) within .app.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-/* ── Outer container (fixed, spans viewport width) ─────────────────────── */
+/* ── Outer container (fixed, fills viewport) ─────────────────────────────
+   Anchored to the TOP ROW rather than the whole panel: the top carousel's
+   vertical center sits at 50vh regardless of whether the detail row is
+   present. --wc-top-row-h is half the top row's height (20px perf + 12px
+   track pad + ½ cell height). The detail row then appears below without
+   pushing the top row up. */
 .wc-container {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  inset: 0;
   z-index: 20;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding-top: calc(50vh - var(--wc-top-row-h) - 175px);
+
+  /* Cell dimensions exposed so sticky-note anchors can position themselves
+     in terms of cell width (see .wc-note-anchor--* rules below). Keep in
+     sync with .wc-thumb__media width and scrollToFirst() in WorkCarousel.tsx. */
+  --wc-cell-w: 320px;
+  --wc-cell-gap: 6px;
+  /* Half-height of one row: 20px top perf + 12px track pad-top + ½ cell(190)  */
+  --wc-top-row-h: 127px;
+}
+
+/* Panel + sticky-notes wrapper — positioning context for absolutely-anchored
+   sticky notes while keeping them siblings of the panel (so gaps click
+   through to dismiss). */
+.wc-panel-wrap {
+  position: relative;
+  width: 100%;
   pointer-events: none;
 }
 
@@ -146,11 +171,6 @@
   overflow: visible;
 }
 
-@keyframes wc-detail-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
 /* ── Perforation strips (top & bottom) ─────────────────────────────────── */
 /*
    SVG tile (24×20):
@@ -199,6 +219,18 @@
 
   scrollbar-width: none;
   -ms-overflow-style: none;
+
+  cursor: grab;
+}
+
+.wc-row__track--dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+  user-select: none;
+}
+
+.wc-row__track--dragging * {
+  pointer-events: none;
 }
 
 .wc-row__track::-webkit-scrollbar { display: none; }
@@ -247,8 +279,28 @@
   border-color: transparent;
   border-radius: 4px;
   box-shadow: none;
-  transform: translateY(-10px) scale(1.32);
+  transform: translateY(-5px) scale(1.12);
   z-index: 10;
+}
+
+.wc-row--top .wc-thumb--clickable:hover .wc-thumb__media {
+  border-radius: 4px;
+}
+
+/* Detail carousel: cells are clickable (open the modal preview) but should
+   stay flush — no scale/lift, no amber glow border. The magnifier handles
+   the in-cell hover affordance instead. */
+.wc-row--detail .wc-thumb--clickable:hover {
+  border-color: #1c0e05;
+  border-radius: 12px;
+  box-shadow: none;
+  transform: none;
+  z-index: auto;
+}
+
+.wc-row--detail .wc-thumb--clickable:hover .wc-thumb__media,
+.wc-row--detail .wc-thumb--clickable:hover .wc-thumb__label {
+  border-radius: 10px;
 }
 
 /* Selected frame: glow only, no border */
@@ -288,16 +340,16 @@
 /* ── Film frame media area ──────────────────────────────────────────────── */
 .wc-thumb__media {
   position: relative;
-  width: 220px;
-  height: 130px;
+  width: 320px;
+  height: 190px;
   overflow: hidden;
   flex-shrink: 0;
   border-radius: 10px;
 }
 
 .wc-thumb--labeled .wc-thumb__media {
-  width: 220px;
-  height: 120px;
+  width: 320px;
+  height: 176px;
   border-radius: 10px 10px 0 0;  /* label row sits below, so only top corners rounded */
 }
 
@@ -310,6 +362,15 @@
   /* Heavy film darkening: deep sepia, low brightness, desaturated */
   filter: sepia(0.45) contrast(1.12) brightness(0.58) saturate(0.75);
   transition: filter 0.22s;
+}
+
+/* Portrait images: show the full image centered on a dark backdrop (matching
+   the title cell background) instead of cropping with object-fit: cover. */
+.wc-thumb--portrait .wc-thumb__media {
+  background: #0d0703;
+}
+.wc-thumb--portrait .wc-thumb__media img {
+  object-fit: contain;
 }
 
 /* Reveal true colors on hover/active/first-lit — go above neutral to pop */
@@ -368,164 +429,230 @@
   transform: translateY(0);
 }
 
+/* Detail carousel: always at normal brightness — no hover lighten/darken */
+.wc-row--detail .wc-thumb__media img,
+.wc-row--detail .wc-thumb__media video {
+  filter: sepia(0) contrast(1.06) brightness(1.08) saturate(1.22);
+}
+
+.wc-row--detail .wc-thumb__media::before {
+  opacity: 0.15;
+}
+
 /* ── Mobile tweaks ──────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
+  .wc-container {
+    --wc-cell-w: 240px;
+    /* 20 + 12 + 80 = 112px */
+    --wc-top-row-h: 112px;
+  }
   .wc-thumb__media,
   .wc-thumb--labeled .wc-thumb__media {
-    width: 160px;
-    height: 110px;
+    width: 240px;
+    height: 160px;
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   IN-PLACE HOVER PREVIEW  (.wc-hover-preview)
-   ─────────────────────────────────────────────────────────────────────────
-   Rendered position:fixed at the exact location of the hovered thumbnail
-   (CSS vars --px/--py/--pw/--ph from getBoundingClientRect).
-   Two-state transition:
-     default  → scale(1)  opacity(0)   (mounted but invisible)
-     --visible → scale(ZOOM) opacity(1)  (triggered one rAF after mount)
-   On leave, React removes --visible, CSS transitions back to scale(1)
-   opacity(0), then React unmounts after the transition duration (260ms).
-   ─────────────────────────────────────────────────────────────────────────
-   z-index 30 — above the filmstrip panel (z-index 20).
-   pointer-events none — hover stays out of the way of the carousel.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Zoom factor — change here to taste */
-:root {
-  --wc-zoom: 2.5;
-  --wc-hover-duration: 180ms;
+/* ── Close button ───────────────────────────────────────────────────────────
+   White circle pinned to the top-right of the viewport with a black X icon.
+   Rotates 90deg when pressed; the rotation also persists during the exit
+   animation via .wc-container--exiting. */
+.wc-mobile-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 3;
+  transform: rotate(0deg);
+  transition: transform 0.14s cubic-bezier(0.37, 0, 0.63, 1);
+}
+.wc-mobile-close svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+.wc-mobile-close:active,
+.wc-mobile-close--closing,
+.wc-container--exiting .wc-mobile-close {
+  transform: rotate(90deg);
 }
 
-.wc-hover-preview {
-  /* Positioned exactly over the source thumbnail */
-  position: fixed;
-  top:    var(--py, 0px);
-  left:   var(--px, 0px);
-  width:  var(--pw, 220px);
-  height: var(--ph, 150px);
+/* ── Inline magnifying glass (hover) ────────────────────────────────────── */
+.wc-mag-glass {
+  position: absolute;
+  width:  210px;
+  height: 210px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 3;
+  background-repeat: no-repeat;
+  box-shadow:
+    inset 0 0 10px rgba(0, 0, 0, 0.45),
+    0 3px 14px rgba(0, 0, 0, 0.6);
+}
 
+/* Brighten image and lift vignette while magnifying */
+.wc-thumb--magnifying .wc-thumb__media img {
+  filter: sepia(0) contrast(1.06) brightness(1.08) saturate(1.22);
+}
+
+.wc-thumb--magnifying .wc-thumb__media::before {
+  opacity: 0.1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLICK-TRIGGERED IMAGE PREVIEW  (modal-style)
+   ─────────────────────────────────────────────────────────────────────────
+   Two layers:
+     .wc-image-preview-overlay  — full-viewport dim backdrop, fixed z-index 30
+     .wc-image-preview          — the modal box itself, sized to natural aspect
+
+   FLIP entry: the modal mounts with a translate+non-uniform-scale that maps
+   its top-left + size onto the source thumbnail's rect. One rAF later we
+   strip the transform, and CSS interpolates the modal back to its real
+   position (centered) and size — so it visually grows from the clicked cell.
+
+   Click on either layer dismisses (overlay onClick handles both).
+   ══════════════════════════════════════════════════════════════════════ */
+.wc-image-preview-overlay {
+  position: fixed;
+  inset: 0;
   z-index: 30;
   pointer-events: auto;
+  cursor: zoom-out;
+  background: rgba(0, 0, 0, 0);
+  transition: background 200ms ease;
+}
+
+.wc-image-preview-overlay--visible {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.wc-image-preview {
+  position: absolute;
+  top:    var(--mt, 0px);
+  left:   var(--ml, 0px);
+  width:  var(--mw, 80vw);
+  height: var(--mh, 80vh);
 
   overflow: hidden;
-  border-radius: 4px;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.75),
-    0 8px  24px rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
   background: #0e0703;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.85),
+    0 12px 32px rgba(0, 0, 0, 0.55);
 
-  /* ── Transition ────────────────────────────────────────────────────── */
-  /* X origin: clamped in JS so zoomed preview stays within viewport.
-     Y origin: aligns with the thumbnail's vertical centre so the zoom
-     visually emanates from the hovered thumbnail. */
-  transform-origin: var(--pox, 50%) var(--poy, 50%);
-  /* Start compressed to ~60% of the thumbnail so the expand-outward motion
-     is visible from the very first frame. Scaling about the transform-origin
-     (thumbnail center) means it blooms outward from that anchor point. */
-  transform: scale(0.6);
+  /* FLIP: start matched to the source thumbnail's rect */
+  transform-origin: top left;
+  transform:
+    translate(var(--init-tx, 0px), var(--init-ty, 0px))
+    scale(var(--init-sx, 0.2), var(--init-sy, 0.2));
   opacity: 0;
   transition:
-    transform var(--wc-hover-duration) cubic-bezier(0.16, 1, 0.3, 1),
-    opacity   calc(var(--wc-hover-duration) * 0.35) ease;
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity   120ms ease;
 }
 
-/* Visible state — applied one rAF after mount to trigger the transition */
-.wc-hover-preview--visible {
-  transform: scale(var(--pzoom, 2.8));
+.wc-image-preview--mounted {
+  transform: none;
   opacity: 1;
-  box-shadow:
-    0 24px 70px rgba(0, 0, 0, 0.8);
 }
 
-/* Text preview: clean drop shadow on white card */
-.wc-hover-preview--visible:has(.wc-hover-preview__text) {
-  box-shadow:
-    0  2px  8px rgba(0, 0, 0, 0.12),
-    0 24px 70px rgba(0, 0, 0, 0.5);
-}
-
-/* ── Text content inside hover preview ──────────────────────────────────── */
-.wc-hover-preview__text {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  overflow: hidden;
-}
-
-.wc-hover-preview__text-excerpt {
-  flex: 1;
-  padding: 0.65rem 0.7rem 0.4rem;
-  font-size: 0.4rem;
-  line-height: 1.65;
-  color: rgba(0, 0, 0, 0.78);
-  text-align: left;
-  overflow: hidden;
-  /* Fade text at the bottom so it doesn't hard-clip */
-  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-}
-
-.wc-hover-preview__text-label {
-  display: block;
-  padding: 0.3rem 0.6rem 0.33rem;
-  font-size: 0.46rem;
-  letter-spacing: 0.13em;
-  color: rgba(0, 0, 0, 0.6);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  background: rgba(0, 0, 0, 0.04);
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-/* ── Pills inside hover preview ─────────────────────────────────────────── */
-.wc-hover-preview__text .wc-pills {
-  padding: 0 0.7rem 0.45rem;
-  flex-shrink: 0;
-  gap: 0.2rem;
-}
-
-.wc-hover-preview__text .wc-pill {
-  font-size: 0.36rem;
-  padding: 0.1rem 0.35rem;
-}
-
-/* ── Media fill ─────────────────────────────────────────────────────────── */
-.wc-hover-preview img,
-.wc-hover-preview video {
+.wc-image-preview img,
+.wc-image-preview video {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
-  /* Lift the film filter so the enlarged version shows true colors */
+  /* Lift the carousel's film filter so the modal shows true colors */
   filter: sepia(0.05) contrast(1.04) brightness(0.97) saturate(1.05);
 }
 
-/* ── Mobile: center preview in viewport on tap ──────────────────────────── */
-/* JS positions the element over the thumbnail; on touch we ignore that and  */
-/* center it instead. translate(-50%,-50%) must appear in both transform     */
-/* states so the scale transition still fires without a translate jump.       */
-@media (hover: none) {
-  .wc-hover-preview {
-    left: 50% !important;
-    top:  50% !important;
-    transform-origin: center center !important;
-    transform: translate(-50%, -50%) scale(0.6);
-  }
-
-  .wc-hover-preview--visible {
-    transform: translate(-50%, -50%) scale(var(--pzoom, 2.5));
-  }
+/* ── Title-only thumbnail (top carousel row) ────────────────────────────────
+   Pixar title-card style: pure black background, each project gets its own
+   display font (assigned by label hash), text uses the company brand color
+   with dimensional shadows — evoking Ratatouille, WALL-E, Up title cards.
+   ──────────────────────────────────────────────────────────────────────── */
+.wc-thumb__media--title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 18px;
+  background: #000;
+  text-align: center;
+  overflow: hidden;
 }
 
-/* Detail row text thumb: same glow on hover */
-.wc-row--detail .wc-thumb--text:hover {
-  z-index: 10;
+.wc-thumb__title-text {
+  position: relative;
+  z-index: 2;
+  font-family: var(--title-font, 'Playfair Display', Georgia, serif);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  color: var(--brand-color, #f0b030);
+  text-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.18),
+    0  2px 0 rgba(0, 0, 0, 0.95),
+    0  4px 12px rgba(0, 0, 0, 0.9),
+    0  0 22px color-mix(in srgb, var(--brand-color, #f0b030) 55%, transparent),
+    0  0 58px color-mix(in srgb, var(--brand-color, #f0b030) 22%, transparent);
+  transition: color 0.22s, text-shadow 0.22s;
+}
+
+/* Word-count-driven sizing */
+.wc-thumb--title-lg .wc-thumb__title-text { font-size: 3.2rem; }
+.wc-thumb--title-md .wc-thumb__title-text { font-size: 2.4rem; }
+.wc-thumb--title-sm .wc-thumb__title-text { font-size: 1.9rem; }
+.wc-thumb--title-xs .wc-thumb__title-text { font-size: 1.5rem; line-height: 1.12; }
+
+/* Hover: brighten text and strengthen glow */
+.wc-thumb--title.wc-thumb--clickable:hover .wc-thumb__media--title {
+  background: #000;
+}
+
+.wc-thumb--title.wc-thumb--clickable:hover .wc-thumb__title-text {
+  color: color-mix(in srgb, var(--brand-color, #f0b030) 80%, #fff);
+  text-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.32),
+    0  2px 0 rgba(0, 0, 0, 0.95),
+    0  4px 14px rgba(0, 0, 0, 0.88),
+    0  0 28px color-mix(in srgb, var(--brand-color, #f0b030) 75%, transparent),
+    0  0 70px color-mix(in srgb, var(--brand-color, #f0b030) 35%, transparent);
+}
+
+/* Doodle layer — sits below vignette and title text */
+.wc-thumb__title-doodles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Cinematic vignette — dark corners frame the title like a screen;
+   explicitly above the doodle layer so doodles fade at the edges */
+.wc-thumb__media--title::before {
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, 0.72) 100%);
+  z-index: 1;
+}
+
+@media (max-width: 640px) {
+  .wc-thumb--title-lg .wc-thumb__title-text { font-size: 2.6rem; }
+  .wc-thumb--title-md .wc-thumb__title-text { font-size: 1.95rem; }
+  .wc-thumb--title-sm .wc-thumb__title-text { font-size: 1.6rem; }
+  .wc-thumb--title-xs .wc-thumb__title-text { font-size: 1.3rem; }
 }
 
 /* ── Text-only thumbnail ────────────────────────────────────────────────── */
@@ -536,10 +663,6 @@
   padding: 0.6rem 0.65rem;
   background: #ffffff;
   cursor: pointer;
-}
-
-.wc-thumb__media--desc {
-  cursor: default;
 }
 
 .wc-thumb__text-excerpt {
@@ -563,62 +686,111 @@
   color: rgba(0, 0, 0, 0.75);
 }
 
-/* ── Project description ────────────────────────────────────────────────── */
-.wc-description {
-  margin: 0;
-  padding: 0.6rem 1.25rem 0.7rem;
-  font-size: 0.72rem;
-  line-height: 1.55;
-  color: rgba(200, 155, 90, 0.7);
-  background: #2e1507;
-  border-top: 1px solid #150901;
-  animation: wc-detail-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+/* ── Sticky notes container ─────────────────────────────────────────────── */
+/* Sibling of .wc-panel (not inside), inside .wc-panel-wrap which provides the
+   positioning context. Each .wc-note-anchor inside is absolutely positioned
+   relative to .wc-panel-wrap so a note can hang off the top/bottom of the
+   panel at a specific horizontal offset (e.g. beside the selected cell or
+   between two detail cells). Container is pointer-events:none so the gaps
+   between notes click through to dismiss. */
+.wc-sticky-notes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+  /* Individual notes carry their own entry animation (see .wc-note-anchor).
+     The group slides out in lockstep with the panel on dismiss. */
 }
 
-/* ── Description card: allow height to grow to fit pills ────────────────── */
-.wc-thumb__media--desc {
-  height: auto !important;
-  min-height: 140px;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding-bottom: 0.55rem;
+.wc-container--exiting .wc-sticky-notes {
+  animation: wc-panel-out 0.38s cubic-bezier(0.37, 0, 0.63, 1) both;
 }
 
-/* Clamp excerpt to fewer lines when pills are present so the card stays compact */
-.wc-thumb__media--desc .wc-thumb__text-excerpt {
-  -webkit-line-clamp: 5;
+/* Per-note anchor: positioned absolutely relative to .wc-panel-wrap.
+   pointer-events:auto re-enabled here so the wrapped StickyNote is grabbable.
+   Each anchor also owns a subtle entry animation (fade + tiny lift). The
+   base animation-delay is tuned to fire AFTER the detail row's slide-in
+   (wc-row-slide-in 0.6s + 0.06s delay = 0.66s). nth-child adds a small
+   stagger so the three notes don't pop in simultaneously. */
+.wc-note-anchor {
+  position: absolute;
+  pointer-events: auto;
+  animation: wc-note-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* ── Skill + leadership pill row ────────────────────────────────────────── */
-.wc-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  padding: 0 0.05rem;
-  max-width: 100%;
+/* Hover-elevate the anchor itself so the grown note paints above sibling
+   anchors. The inner .note's z-index can't escape the anchor's stacking
+   context (created by the entry animation's transform). */
+.wc-note-anchor:has(:hover) {
+  z-index: 999;
 }
 
-/* ── Base pill ───────────────────────────────────────────────────────────── */
-.wc-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.18rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.48rem;
-  letter-spacing: 0.07em;
-  font-weight: 600;
+.wc-sticky-notes > .wc-note-anchor:nth-child(1) { animation-delay: 0.70s; }
+.wc-sticky-notes > .wc-note-anchor:nth-child(2) { animation-delay: 0.82s; }
+.wc-sticky-notes > .wc-note-anchor:nth-child(3) { animation-delay: 0.94s; }
+
+@keyframes wc-note-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Suppress the entry animation on exit so notes don't briefly snap back to
+   their pre-entry state while the panel slides out. */
+.wc-container--exiting .wc-note-anchor {
+  animation: none;
+}
+
+/* Note 1 (description): bottom of the detail row (2nd carousel), horizontally
+   between cells 1 and 2 of the project assets. The detail track is scrolled so
+   the first interactive cell sits at x=0 in its viewport, so cell-1-to-cell-2
+   midpoint is at (cell-w + gap/2) from the panel's left edge. The note is
+   175px wide, so offset by half that to center on the midpoint. The note hangs
+   off the bottom, with a small overlap on the panel for visual anchoring. */
+.wc-note-anchor--detail-mid {
+  top: calc(100% - 30px);
+  left: calc(var(--wc-cell-w) + (var(--wc-cell-gap) / 2) - 87.5px);
+}
+
+/* Note 2 (skills): sits immediately to the right of the description note
+   (.wc-note-anchor--detail-mid) on desktop. Same vertical anchor (bottom of
+   detail row), offset horizontally by the note's own width (175px) + 14px gap. */
+.wc-note-anchor--top-selected {
+  top: calc(100% - 30px);
+  left: calc(var(--wc-cell-w) + (var(--wc-cell-gap) / 2) - 87.5px + 175px + 14px);
+}
+
+/* Note 3 (doodle): right side of the panel, bottom of the 2nd carousel row —
+   mirrors the vertical anchor of notes 1 and 2 so all three notes hang off
+   the same baseline. */
+.wc-note-anchor--detail-br {
+  top: calc(100% - 30px);
+  right: 2rem;
+}
+
+/* On mobile, only the description sticky note is shown — the skills note
+   would crowd the selected cell and the doodle note has nowhere to land
+   without overlapping the carousel rows. */
+@media (max-width: 640px) {
+  .wc-note-anchor--top-selected,
+  .wc-note-anchor--detail-br {
+    display: none;
+  }
+}
+
+/* Doodle scatter field: fills the sticky note's content area so doodles
+   can be positioned absolutely across the whole surface. */
+.sn-doodle-field {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Each doodle is placed at a random (x, y) computed in JS */
+.sn-doodle {
+  position: absolute;
   white-space: nowrap;
-  cursor: default;
-  user-select: none;
-  line-height: 1.4;
-}
-
-/* ── Skill + leadership pills: fixed site orange ─────────────────────────── */
-.wc-pill--skill,
-.wc-pill--leadership {
-  background: color-mix(in srgb, #c8783a 22%, transparent);
-  border: 1px solid color-mix(in srgb, #c8783a 50%, transparent);
-  color: rgba(230, 175, 100, 0.92);
+  pointer-events: none;
+  line-height: 1;
 }
 

@@ -1,6 +1,12 @@
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import type { CompanyWork, ProjectAssets } from './workManifest';
 import './WorkCarousel.css';
+import { StickyNote } from '../../components/StickyNote';
+import { StickyDoodles } from '../../components/StickyDoodles';
+import { ASCII_DOODLES } from '../../constants/asciidoodles';
+import { STICKY_NOTE_PALETTES } from '../../constants/stickyNoteColors';
+import type { StickyNotePalette } from '../../constants/stickyNoteColors';
+import { useDragScroll } from './useDragScroll';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -8,132 +14,80 @@ function isVideo(url: string): boolean {
   return /\.(mp4|mov|webm)$/i.test(url);
 }
 
-function stripHtml(s: string): string {
-  return s.replace(/<[^>]*>/g, '');
-}
-
-// ── In-place hover preview ─────────────────────────────────────────────────────
-//
-// Renders position:fixed exactly over the hovered thumbnail, then CSS-transitions
-// to a larger scale. On leave it scales back to 1 and fades, then unmounts.
-// Using fixed-position sidesteps the overflow:auto clipping of the scroll track.
-// Works for both media (url) and text-only thumbs (textContent).
+// ── ImagePreview ──────────────────────────────────────────────────────────────
+// Click-triggered modal: starts visually aligned with the source thumbnail's
+// rect (FLIP-style initial transform), then transitions to a centered viewport
+// modal sized to the image's natural aspect ratio. A dim backdrop fades in
+// behind it; clicking either the backdrop or the image dismisses.
 
 interface NaturalDims { w: number; h: number }
 
-interface HoverPreviewProps {
-  url?: string;
-  textContent?: { label: string; description: string; skills?: string[]; leadership?: string[] };
+interface ImagePreviewProps {
+  url: string;
   rect: DOMRect;
-  /** Set to true one frame after mount to trigger the transition in */
-  visible: boolean;
-  onClose: () => void;
-  /** Called when mouse enters the preview — cancels the pending hide */
-  onKeepAlive: () => void;
-  /** Called when mouse leaves the preview — triggers hide */
-  onLeave: () => void;
-  /** Natural pixel dimensions of the media — used to size the preview without cropping */
   naturalDims?: NaturalDims;
-  brandColor?: string;
+  onDismiss: () => void;
 }
 
-function HoverPreview({ url, textContent, rect, visible, onClose, onKeepAlive, onLeave, naturalDims, brandColor }: HoverPreviewProps) {
-  const maxZoom    = textContent ? 2.3 : 4.0;
-  const vw         = window.innerWidth;
-  const vh         = window.innerHeight;
-  const margin     = 16; // px clearance from viewport edges
-  const leftMargin = textContent ? 72 : margin; // extra left buffer for text previews
-  const pw         = rect.width;
-  const px         = rect.left - (textContent ? 16 : 0);
+function ImagePreview({ url, rect, naturalDims, onDismiss }: ImagePreviewProps) {
+  // Self-managed mount-then-rAF state drives the FLIP entry. Owning this here
+  // (instead of letting the parent toggle a `visible` prop) lets the modal
+  // re-animate on each click via key={url} without the parent ever flipping
+  // the overlay's dim backdrop off — which would otherwise show the scene
+  // through for one frame on consecutive clicks.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
-  // Natural-ratio height for media; content-aware height for text.
-  // Text height: estimate lines from description length, clamped to [thumb height, 1.6× width].
-  // ~38 chars/line at 220px wide (0.4rem font, 0.7rem padding each side).
-  const ph = naturalDims
-    ? Math.min(pw * naturalDims.h / naturalDims.w, pw * 3)
-    : textContent
-    ? (() => {
-        const charsPerLine = Math.floor((pw - 22) / 4.0);
-        const lineHeight   = 10.6; // px: 0.4rem * 16 * 1.65
-        const paddingV     = 17;   // px: top (0.65rem) + bottom (0.4rem) padding
-        const pillCount    = (textContent.skills?.length ?? 0) + (textContent.leadership?.length ?? 0);
-        const pillsHeight  = pillCount > 0 ? 20 : 0; // px: one row of pills + gap
-        const lines        = Math.ceil(stripHtml(textContent.description).length / charsPerLine);
-        const estimated    = lines * lineHeight + pillsHeight + paddingV;
-        return Math.min(Math.max(estimated, rect.height), pw * 1.6);
-      })()
-    : rect.height;
+  const margin = 32;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
 
-  // Cap zoom so the fully-scaled preview never exceeds the viewport in either axis.
-  const zoom = Math.min(
-    maxZoom,
-    (vw - margin * 2) / pw,
-    (vh - margin * 2) / ph,
-  );
+  // Final modal size: aspect-correct, fits viewport with margin on both axes.
+  // Falls back to the thumbnail's aspect when natural dims aren't loaded yet.
+  const aspect = naturalDims
+    ? naturalDims.w / naturalDims.h
+    : rect.width / rect.height;
+  const maxW = vw - margin * 2;
+  const maxH = vh - margin * 2;
+  const modalW = Math.min(maxW, maxH * aspect);
+  const modalH = modalW / aspect;
+  const modalLeft = (vw - modalW) / 2;
+  const modalTop  = (vh - modalH) / 2;
 
-  // The scaled preview's top edge is:  py - originY*(zoom-1)
-  // The scaled preview's bottom edge is: py + ph*zoom - originY*(zoom-1)
-  // With originY = thumbCenterY - py, solving those two inequalities for py gives:
-  //   py ≥ (margin  + thumbCenterY*(zoom-1)) / zoom   [top stays in viewport]
-  //   py ≤ (vh - margin - ph*zoom + thumbCenterY*(zoom-1)) / zoom   [bottom stays]
-  // Center first, then clamp to the valid range so both edges are inside.
-  const thumbCenterY = rect.top + rect.height / 2;
-  const pyMin = (margin  + thumbCenterY * (zoom - 1)) / zoom;
-  const pyMax = (vh - margin - ph * zoom + thumbCenterY * (zoom - 1)) / zoom;
-  const pyCentered = thumbCenterY - ph / 2;
-  const py = Math.max(pyMin, Math.min(pyMax, pyCentered));
-
-  // Y transform origin: distance from preview top to thumbnail centre.
-  // Scaling about this point keeps the zoom visually anchored to the thumbnail.
-  const originY = thumbCenterY - py;
-
-  // X origin: clamp so the zoomed preview never clips outside the viewport.
-  let originX = pw / 2;
-  // Left constraint: px + originX*(1 - zoom) >= leftMargin  →  originX <= (px - leftMargin)/(zoom-1)
-  const maxOriginX = zoom > 1 ? (px - leftMargin) / (zoom - 1) : pw;
-  // Right constraint: px + originX*(1 - zoom) + pw*zoom <= vw  →  originX >= (px + pw*zoom - vw)/(zoom-1)
-  const minOriginX = zoom > 1 ? (px + pw * zoom - vw) / (zoom - 1) : 0;
-  originX = Math.max(-pw, Math.min(pw, Math.max(minOriginX, Math.min(originX, maxOriginX))));
+  // FLIP initial transform: places the modal box visually over the source
+  // thumbnail. transform-origin is top-left so translate + non-uniform scale
+  // exactly maps the modal's top-left corner and dimensions onto rect.
+  const initSx = rect.width  / modalW;
+  const initSy = rect.height / modalH;
+  const initTx = rect.left - modalLeft;
+  const initTy = rect.top  - modalTop;
 
   return (
     <div
-      className={`wc-hover-preview${visible ? ' wc-hover-preview--visible' : ''}`}
-      style={{
-        '--py':   `${py}px`,
-        '--px':   `${px}px`,
-        '--pw':   `${pw}px`,
-        '--ph':   `${ph}px`,
-        '--pox':  `${originX}px`,
-        '--poy':  `${originY}px`,
-        '--pzoom': zoom,
-        ...(brandColor ? { '--brand-color': brandColor } : {}),
-      } as React.CSSProperties}
-      onMouseEnter={onKeepAlive}
-      onMouseLeave={onLeave}
-      // Clicking the enlarged preview on mobile acts as a tap-out dismiss
-      onClick={onClose}
+      className="wc-image-preview-overlay wc-image-preview-overlay--visible"
+      onClick={onDismiss}
     >
-      {url ? (
-        isVideo(url) ? (
-          <video src={url} autoPlay muted loop playsInline />
-        ) : (
-          <img src={url} alt="" />
-        )
-      ) : textContent ? (
-        <div className="wc-hover-preview__text">
-          <span className="wc-hover-preview__text-excerpt" dangerouslySetInnerHTML={{ __html: textContent.description }} />
-          {((textContent.skills?.length ?? 0) > 0 || (textContent.leadership?.length ?? 0) > 0) && (
-            <div className="wc-pills">
-              {textContent.skills?.map(s => (
-                <span key={s} className="wc-pill wc-pill--skill">{s}</span>
-              ))}
-              {textContent.leadership?.map(l => (
-                <span key={l} className="wc-pill wc-pill--leadership">{l}</span>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
+      <div
+        className={`wc-image-preview${mounted ? ' wc-image-preview--mounted' : ''}`}
+        style={{
+          '--mw':       `${modalW}px`,
+          '--mh':       `${modalH}px`,
+          '--ml':       `${modalLeft}px`,
+          '--mt':       `${modalTop}px`,
+          '--init-tx':  `${initTx}px`,
+          '--init-ty':  `${initTy}px`,
+          '--init-sx':  initSx,
+          '--init-sy':  initSy,
+        } as React.CSSProperties}
+      >
+        {isVideo(url)
+          ? <video src={url} autoPlay muted loop playsInline />
+          : <img src={url} alt="" />
+        }
+      </div>
     </div>
   );
 }
@@ -147,22 +101,44 @@ interface AssetThumbProps {
   active?: boolean;
   /** Show the resting highlight when nothing else is hovered */
   firstLit?: boolean;
-  /** Opens the detail row (top-row only) */
-  onClick?: () => void;
-  /** Hover in — detail-row only */
-  onHoverIn?: (url: string, rect: DOMRect) => void;
-  /** Hover out — detail-row only */
+  /** Click handler — receives the thumbnail's current bounding rect */
+  onClick?: (rect: DOMRect) => void;
+  /** Hover in */
+  onHoverIn?: () => void;
+  /** Hover out */
   onHoverOut?: () => void;
   brandColor?: string;
-  /** Called once when the media's natural dimensions are known */
+  /** Called once when the underlying image's natural dimensions are known */
   onDimLoad?: (url: string, w: number, h: number) => void;
+  /** Inline magnifying glass that follows the cursor while hovering the media */
+  enableMagnifier?: boolean;
 }
+
+const MAG_GLASS_SIZE = 210; // diameter px
+const MAG_ZOOM       = 3;
 
 function AssetThumb({
   url, index, label, active, firstLit,
   onClick, onHoverIn, onHoverOut,
-  brandColor, onDimLoad,
+  brandColor, onDimLoad, enableMagnifier,
 }: AssetThumbProps) {
+  // Magnifier glass state — only used when enableMagnifier is true
+  const [magGlass, setMagGlass] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  // Natural pixel dimensions — needed both to replicate object-fit:cover in the
+  // magnifier background and to drive the portrait classifier below.
+  const [naturalDims, setNaturalDims] = useState<{ w: number; h: number } | null>(null);
+  // Portrait orientation → show full image (contain) on dark background instead of cropping
+  const [isPortrait, setIsPortrait] = useState(false);
+
+  const handleMagMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    setMagGlass({ x: e.clientX - rect.left, y: e.clientY - rect.top, w: rect.width, h: rect.height });
+  }, []);
+
+  const handleMagLeave = useCallback(() => setMagGlass(null), []);
+
+  const isMag = enableMagnifier && !isVideo(url);
+
   return (
     <button
       className={[
@@ -171,136 +147,158 @@ function AssetThumb({
         firstLit  ? 'wc-thumb--first-lit'  : '',
         onClick   ? 'wc-thumb--clickable'  : '',
         label     ? 'wc-thumb--labeled'    : '',
+        isPortrait ? 'wc-thumb--portrait'  : '',
+        (isMag && magGlass) ? 'wc-thumb--magnifying' : '',
       ].filter(Boolean).join(' ')}
       style={{
         '--i': index,
         ...(brandColor ? { '--brand-color': brandColor } : {}),
       } as React.CSSProperties}
-      onMouseEnter={(e) =>
-        onHoverIn?.(url, (e.currentTarget as HTMLElement).getBoundingClientRect())
-      }
+      onMouseEnter={() => onHoverIn?.()}
       onMouseLeave={() => onHoverOut?.()}
-      onClick={(e) => {
-        // On touch devices, tap opens the hover preview (mirrors desktop hover)
-        if (window.matchMedia('(hover: none)').matches) {
-          onHoverIn?.(url, (e.currentTarget as HTMLElement).getBoundingClientRect());
-        }
-        onClick?.();
-      }}
+      onClick={(e) => onClick?.((e.currentTarget as HTMLElement).getBoundingClientRect())}
       aria-pressed={active}
     >
-      <div className="wc-thumb__media">
+      <div
+        className="wc-thumb__media"
+        onMouseMove={isMag ? handleMagMove : undefined}
+        onMouseLeave={isMag ? handleMagLeave : undefined}
+        style={isMag && magGlass ? { cursor: 'none' } : undefined}
+      >
         {isVideo(url) ? (
-          <video
-            src={url} muted loop playsInline autoPlay aria-hidden="true"
-            onLoadedMetadata={(e) => {
-              const v = e.currentTarget;
-              if (v.videoWidth && v.videoHeight) onDimLoad?.(url, v.videoWidth, v.videoHeight);
-            }}
-          />
+          <video src={url} muted loop playsInline autoPlay aria-hidden="true" />
         ) : (
           <img
             src={url} alt=""
             onLoad={(e) => {
               const img = e.currentTarget;
-              if (img.naturalWidth && img.naturalHeight) onDimLoad?.(url, img.naturalWidth, img.naturalHeight);
+              if (img.naturalWidth && img.naturalHeight) {
+                onDimLoad?.(url, img.naturalWidth, img.naturalHeight);
+                setNaturalDims({ w: img.naturalWidth, h: img.naturalHeight });
+                setIsPortrait(img.naturalHeight > img.naturalWidth);
+              }
             }}
           />
         )}
+        {isMag && magGlass && (() => {
+          const r   = MAG_GLASS_SIZE / 2;
+          const cw  = magGlass.w;
+          const ch  = magGlass.h;
+
+          // Match the rendered image box: portrait cells use object-fit:contain
+          // (Math.min) and are letterboxed; landscape cells use object-fit:cover
+          // (Math.max) and overflow. offX/offY locate the image's top-left
+          // relative to the cell's top-left (positive for contain, negative for
+          // cover), so the lens math below is identical in both modes.
+          let bgW  = cw * MAG_ZOOM;
+          let bgH  = ch * MAG_ZOOM;
+          let rW   = cw;
+          let rH   = ch;
+          let offX = 0;
+          let offY = 0;
+          if (naturalDims) {
+            const fit = isPortrait ? Math.min : Math.max;
+            const scale = fit(cw / naturalDims.w, ch / naturalDims.h);
+            rW   = naturalDims.w * scale;
+            rH   = naturalDims.h * scale;
+            bgW  = rW * MAG_ZOOM;
+            bgH  = rH * MAG_ZOOM;
+            offX = (cw - rW) / 2;
+            offY = (ch - rH) / 2;
+          }
+
+          // Clamp the lens centre to (a) keep the lens visually inside the cell
+          // and (b) keep its sample point inside the rendered image — important
+          // for contain, where mousing over letterbox would otherwise sample
+          // empty space outside the background image.
+          const minX = Math.max(r / MAG_ZOOM, offX);
+          const maxX = Math.min(cw - r / MAG_ZOOM, offX + rW);
+          const minY = Math.max(r / MAG_ZOOM, offY);
+          const maxY = Math.min(ch - r / MAG_ZOOM, offY + rH);
+          const gx = Math.max(minX, Math.min(maxX, magGlass.x));
+          const gy = Math.max(minY, Math.min(maxY, magGlass.y));
+          const bpX = r - (gx - offX) * MAG_ZOOM;
+          const bpY = r - (gy - offY) * MAG_ZOOM;
+
+          return (
+            <div
+              className="wc-mag-glass"
+              style={{
+                left:               gx - r,
+                top:                gy - r,
+                backgroundImage:    `url('${url}')`,
+                backgroundSize:     `${bgW}px ${bgH}px`,
+                backgroundPosition: `${bpX}px ${bpY}px`,
+              }}
+            />
+          );
+        })()}
       </div>
       {label && <span className="wc-thumb__label">{label}</span>}
     </button>
   );
 }
 
-// ── DescriptionThumb ──────────────────────────────────────────────────────────
-// Renders as the first frame in the detail carousel row.
+// ── TitleThumb ────────────────────────────────────────────────────────────────
+// Top-row cell that shows the project name as a Pixar-style title card.
+// Each project gets a deterministic font from the pool based on a label hash.
 
-interface DescriptionThumbProps {
+// Divider colors from the sticky-note palettes — same set used by the doodle
+// sticky note so the title-card doodles read as the same visual language.
+const TITLE_DOODLE_COLORS = STICKY_NOTE_PALETTES.map(p => p.divider);
+
+const TITLE_FONTS = [
+  "'Bitcount Grid Double', monospace",              // pixel/grid display
+  "'Bebas Neue', 'Arial Narrow', sans-serif",       // clean modern all-caps
+  "'Erica One', sans-serif",                        // bold impact display
+  "'Shrikhand', serif",                             // bold decorative
+  "'Fredoka', 'Arial Rounded MT Bold', sans-serif", // rounded friendly
+];
+
+interface TitleThumbProps {
   index: number;
   label: string;
-  description: string;
-  skills?: string[];
-  leadership?: string[];
-  firstLit?: boolean;
-  onHoverIn?: (label: string, description: string, rect: DOMRect, skills?: string[], leadership?: string[]) => void;
-  onHoverOut?: () => void;
-}
-
-function DescriptionThumb({ index, label, description, skills, leadership, firstLit, onHoverIn, onHoverOut }: DescriptionThumbProps) {
-  const hasPills = (skills?.length ?? 0) > 0 || (leadership?.length ?? 0) > 0;
-  return (
-    <div
-      className={['wc-thumb', 'wc-thumb--labeled', 'wc-thumb--text', firstLit ? 'wc-thumb--first-lit' : ''].filter(Boolean).join(' ')}
-      style={{ '--i': index } as React.CSSProperties}
-      onMouseEnter={(e) =>
-        onHoverIn?.(label, description, (e.currentTarget as HTMLElement).getBoundingClientRect(), skills, leadership)
-      }
-      onMouseLeave={() => onHoverOut?.()}
-      onClick={(e) => {
-        // On touch devices, tap opens the hover preview (mirrors desktop hover)
-        if (window.matchMedia('(hover: none)').matches) {
-          onHoverIn?.(label, description, (e.currentTarget as HTMLElement).getBoundingClientRect(), skills, leadership);
-        }
-      }}
-    >
-      <div className="wc-thumb__media wc-thumb__media--text wc-thumb__media--desc">
-        <span className="wc-thumb__text-excerpt" dangerouslySetInnerHTML={{ __html: description }} />
-        {hasPills && (
-          <div className="wc-pills">
-            {skills?.map(s => (
-              <span key={s} className="wc-pill wc-pill--skill">{s}</span>
-            ))}
-            {leadership?.map(l => (
-              <span key={l} className="wc-pill wc-pill--leadership">{l}</span>
-            ))}
-          </div>
-        )}
-      </div>
-      <span className="wc-thumb__label">{label}</span>
-    </div>
-  );
-}
-
-// ── TextThumb ─────────────────────────────────────────────────────────────────
-// Renders in the top carousel row for projects with no visual assets.
-
-interface TextThumbProps {
-  index: number;
-  label: string;
-  description: string;
-  skills?: string[];
-  leadership?: string[];
-  active?: boolean;
-  firstLit?: boolean;
   onClick?: () => void;
-  onHoverIn?: (label: string, description: string, rect: DOMRect, skills?: string[], leadership?: string[]) => void;
-  onHoverOut?: () => void;
+  brandColor?: string;
 }
 
-function TextThumb({ index, label, description, skills, leadership, active, firstLit, onClick, onHoverIn, onHoverOut }: TextThumbProps) {
+function TitleThumb({ index, label, onClick, brandColor }: TitleThumbProps) {
+  // Word count drives a font-size step-down so longer titles still fit the cell.
+  const wordCount = label.trim().split(/\s+/).length;
+  const sizeClass =
+    wordCount >= 4 ? 'wc-thumb--title-xs' :
+    wordCount === 3 ? 'wc-thumb--title-sm' :
+    wordCount === 2 ? 'wc-thumb--title-md' :
+    'wc-thumb--title-lg';
+
+  // Deterministic font per project — summed char codes mod pool length so
+  // each label always maps to the same font regardless of render order.
+  const fontIdx = Array.from(label).reduce((acc, c) => acc + c.charCodeAt(0), 0) % TITLE_FONTS.length;
+  const titleFont = TITLE_FONTS[fontIdx];
+
+  // Random doodle color + count — stable for the component's lifetime.
+  const { doodleColor, doodleCount } = useMemo(() => ({
+    doodleColor: TITLE_DOODLE_COLORS[Math.floor(Math.random() * TITLE_DOODLE_COLORS.length)],
+    doodleCount: 3 + Math.floor(Math.random() * 3), // 3, 4, or 5
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), []);
+
   return (
     <button
-      className={[
-        'wc-thumb',
-        'wc-thumb--clickable',
-        'wc-thumb--labeled',
-        'wc-thumb--text',
-        active    ? 'wc-thumb--active'    : '',
-        firstLit  ? 'wc-thumb--first-lit' : '',
-      ].filter(Boolean).join(' ')}
-      style={{ '--i': index } as React.CSSProperties}
-      onMouseEnter={(e) =>
-        onHoverIn?.(label, description, (e.currentTarget as HTMLElement).getBoundingClientRect(), skills, leadership)
-      }
-      onMouseLeave={() => onHoverOut?.()}
+      className={['wc-thumb', 'wc-thumb--clickable', 'wc-thumb--title', sizeClass].join(' ')}
+      style={{
+        '--i': index,
+        '--title-font': titleFont,
+        ...(brandColor ? { '--brand-color': brandColor } : {}),
+      } as React.CSSProperties}
       onClick={onClick}
-      aria-pressed={active}
     >
-      <div className="wc-thumb__media wc-thumb__media--text">
-        <span className="wc-thumb__text-excerpt" dangerouslySetInnerHTML={{ __html: description }} />
+      <div className="wc-thumb__media wc-thumb__media--title">
+        <div className="wc-thumb__title-doodles" aria-hidden="true">
+          <StickyDoodles fieldWidth={320} fieldHeight={190} color={doodleColor} count={doodleCount} sizeRange={[30, 90]} strokeWidth={1.8} />
+        </div>
+        <span className="wc-thumb__title-text">{label}</span>
       </div>
-      <span className="wc-thumb__label">{label}</span>
     </button>
   );
 }
@@ -332,39 +330,82 @@ export default function WorkCarousel({ company, onClose, exiting }: {
 }) {
   const [selectedProject, setSelectedProject] = useState<ProjectAssets | null>(null);
   const [detailKey,        setDetailKey]       = useState(0);
+  const [closing,          setClosing]         = useState(false);
 
-  // Natural dimensions cache — a ref so handleHoverIn always reads the latest
-  // value without stale-closure issues (no dep array needed, no re-render cost).
-  const naturalDimsRef = useRef<Record<string, NaturalDims>>({});
-
-  // Hover-preview state
-  const [hoverUrl,         setHoverUrl]        = useState<string | null>(null);
-  const [hoverText,        setHoverText]       = useState<{ label: string; description: string; skills?: string[]; leadership?: string[] } | null>(null);
-  const [hoverRect,        setHoverRect]       = useState<DOMRect | null>(null);
-  const [hoverNaturalDims, setHoverNaturalDims] = useState<NaturalDims | null>(null);
-  // `hoverVisible` lags one frame behind mounting so the CSS transition fires
-  const [hoverVisible, setHoverVisible] = useState(false);
-
-  // Timers
-  const showTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hideTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const visibleTimer = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
+  const handleMobileClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    // Match the rotate transition duration in WorkCarousel.css (.wc-mobile-close)
+    setTimeout(onClose, 110);
+  }, [closing, onClose]);
 
   // Track scroll containers — used to snap to the first interactive cell on mount
   const topTrackRef    = useRef<HTMLDivElement>(null);
   const detailTrackRef = useRef<HTMLDivElement>(null);
 
+  useDragScroll(topTrackRef);
+  useDragScroll(detailTrackRef);
+
+  // Track whether any detail-row cell is hovered, so the first cell stays
+  // lit (wc-thumb--first-lit) when nothing else is being hovered.
+  const [anyDetailHovered, setAnyDetailHovered] = useState(false);
+
+  // ── Click-triggered image preview ─────────────────────────────────────────
+  // Cache of natural pixel dimensions per asset URL — populated as detail-row
+  // images load and (eagerly) when the company changes. Reads as a ref so the
+  // preview opener always sees the latest value with no stale-closure risk.
+  const naturalDimsRef = useRef<Record<string, NaturalDims>>({});
+  const [previewUrl,  setPreviewUrl]  = useState<string | null>(null);
+  const [previewRect, setPreviewRect] = useState<DOMRect | null>(null);
+  const [previewDims, setPreviewDims] = useState<NaturalDims | null>(null);
+
+  const hidePreview = useCallback(() => {
+    setPreviewUrl(null);
+    setPreviewRect(null);
+    setPreviewDims(null);
+  }, []);
+
+  const togglePreview = useCallback((url: string, rect: DOMRect) => {
+    // Same thumb → close. Different thumb → swap url/rect/dims in place; the
+    // ImagePreview re-mounts via key={url} and replays its FLIP entry while
+    // the overlay's dim backdrop stays solid (no flicker between previews).
+    if (previewUrl === url) {
+      hidePreview();
+    } else {
+      setPreviewUrl(url);
+      setPreviewRect(rect);
+      setPreviewDims(naturalDimsRef.current[url] ?? null);
+    }
+  }, [previewUrl, hidePreview]);
+
+  const handleDimLoad = useCallback((url: string, w: number, h: number) => {
+    if (!naturalDimsRef.current[url]) {
+      naturalDimsRef.current[url] = { w, h };
+    }
+  }, []);
+
+  // Eager preload of natural dims for every image in the company so the first
+  // preview click can size the popup immediately. Cached images resolve sync;
+  // others trickle in well before user interaction.
+  useEffect(() => {
+    const urls = company.projects.flatMap(p => p.assets).filter(u => !isVideo(u));
+    urls.forEach(url => {
+      if (naturalDimsRef.current[url]) return;
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          naturalDimsRef.current[url] = { w: img.naturalWidth, h: img.naturalHeight };
+        }
+      };
+      img.src = url;
+    });
+  }, [company]);
+
   useEffect(() => {
     setSelectedProject(null);
-    setHoverUrl(null);
-    setHoverText(null);
-    setHoverRect(null);
-    setHoverNaturalDims(null);
-    setHoverVisible(false);
-    setAnyTopHovered(false);
     setAnyDetailHovered(false);
-    naturalDimsRef.current = {};
-  }, [company.slug]);
+    hidePreview();
+  }, [company.slug, hidePreview]);
 
   // ── Scroll a track so the first interactive cell is the leftmost item ──────
   // getBoundingClientRect is unreliable here: the panel and row both start their
@@ -377,8 +418,8 @@ export default function WorkCarousel({ company, onClose, exiting }: {
   // it has entered and the write is accepted.
   const scrollToFirst = useCallback((track: HTMLDivElement) => {
     const isMobile = window.matchMedia('(max-width: 640px)').matches;
-    const cellWidth = isMobile ? 160 : 220; // matches .wc-thumb__media width in CSS
-    const gap       = 6;                    // matches gap: 6px on .wc-row__track
+    const cellWidth = isMobile ? 240 : 320;
+    const gap       = 6;
     track.scrollLeft = FILLERS_START * (cellWidth + gap);
   }, []);
 
@@ -398,274 +439,250 @@ export default function WorkCarousel({ company, onClose, exiting }: {
     return () => cancelAnimationFrame(raf);
   }, [detailKey, scrollToFirst]);
 
-  // ── Eager dim preload — fires as soon as the carousel opens for a company ──
-  // Kicks off new Image() loads for every image asset in the company so dims are
-  // cached before the user can hover. Images already in the browser cache resolve
-  // synchronously; slow connections still get dims before the first hover.
-  useEffect(() => {
-    const imageUrls = company.projects
-      .flatMap(p => p.assets)
-      .filter(url => !isVideo(url));
-
-    imageUrls.forEach(url => {
-      if (naturalDimsRef.current[url]) return;
-      const img = new Image();
-      img.onload = () => {
-        if (img.naturalWidth && img.naturalHeight) {
-          naturalDimsRef.current[url] = { w: img.naturalWidth, h: img.naturalHeight };
-        }
-      };
-      img.src = url;
-    });
-  }, [company]);
-
-  useEffect(() => () => {
-    if (showTimer.current)   clearTimeout(showTimer.current);
-    if (hideTimer.current)   clearTimeout(hideTimer.current);
-    if (visibleTimer.current) cancelAnimationFrame(visibleTimer.current);
-  }, []);
-
-  // ── Detail-row toggle ────────────────────────────────────────────────────
   const handleProjectClick = useCallback((project: ProjectAssets) => {
+    hidePreview();
     setSelectedProject(prev => {
       if (prev?.slug === project.slug) return null;
       setDetailKey(k => k + 1);
       setAnyDetailHovered(false);
       return project;
     });
-  }, []);
-
-  // ── Dim-load callback — stores natural dimensions from loaded thumbnails ──
-  // Writes directly to the ref; no state update needed (handleHoverIn reads the ref).
-  const handleDimLoad = useCallback((url: string, w: number, h: number) => {
-    if (!naturalDimsRef.current[url]) {
-      naturalDimsRef.current[url] = { w, h };
-    }
-  }, []);
-
-  // ── Hover preview — enter (media) ───────────────────────────────────────
-  const handleHoverIn = useCallback((url: string, rect: DOMRect) => {
-    // Cancel any in-progress hide
-    if (hideTimer.current)   clearTimeout(hideTimer.current);
-    if (showTimer.current)   clearTimeout(showTimer.current);
-    if (visibleTimer.current) cancelAnimationFrame(visibleTimer.current);
-
-    setHoverUrl(url);
-    setHoverText(null);
-    setHoverRect(rect);
-    // Reads from ref — always current, no stale-closure risk
-    setHoverNaturalDims(naturalDimsRef.current[url] ?? null);
-    setHoverVisible(false); // mount at scale(1)
-
-    // One rAF lets the browser paint the initial state before the transition fires
-    visibleTimer.current = requestAnimationFrame(() => {
-      setHoverVisible(true); // transitions to scale(ZOOM)
-    });
-  }, []); // no deps — ref reads are always live
-
-  // ── Hover preview — enter (text thumb) ──────────────────────────────────
-  const handleTextHoverIn = useCallback((label: string, description: string, rect: DOMRect, skills?: string[], leadership?: string[]) => {
-    if (hideTimer.current)   clearTimeout(hideTimer.current);
-    if (showTimer.current)   clearTimeout(showTimer.current);
-    if (visibleTimer.current) cancelAnimationFrame(visibleTimer.current);
-
-    setHoverUrl(null);
-    setHoverText({ label, description, skills, leadership });
-    setHoverRect(rect);
-    setHoverNaturalDims(null); // clear any stale dims from a previously hovered image
-    setHoverVisible(false);
-
-    visibleTimer.current = requestAnimationFrame(() => {
-      setHoverVisible(true);
-    });
-  }, []);
-
-  // ── Shared: schedule unmount of hover preview after transition (260ms) ────
-  const scheduleHoverDismiss = useCallback(() => {
-    hideTimer.current = setTimeout(() => {
-      setHoverUrl(null);
-      setHoverText(null);
-      setHoverRect(null);
-      setHoverNaturalDims(null);
-    }, 260);
-  }, []);
-
-  // ── Hover preview — leave ────────────────────────────────────────────────
-  const handleHoverOut = useCallback(() => {
-    if (showTimer.current)   clearTimeout(showTimer.current);
-    if (visibleTimer.current) cancelAnimationFrame(visibleTimer.current);
-    setHoverVisible(false); // transitions back to scale(1) + opacity 0
-    scheduleHoverDismiss();
-  }, [scheduleHoverDismiss]);
-
-  // ── Keep hover preview alive when mouse moves onto it ───────────────────
-  // mouseLeave on the thumbnail fires before mouseEnter on the preview, so
-  // handleHoverOut has already called setHoverVisible(false) and started the
-  // 260ms hide timer by the time this runs. We cancel both and re-show.
-  const handlePreviewKeepAlive = useCallback(() => {
-    if (hideTimer.current)   clearTimeout(hideTimer.current);
-    if (showTimer.current)   clearTimeout(showTimer.current);
-    if (visibleTimer.current) cancelAnimationFrame(visibleTimer.current);
-    setHoverVisible(true);
-  }, []);
-
-  // ── Dismiss hover preview (click) ───────────────────────────────────────
-  const dismissHover = useCallback(() => {
-    setHoverVisible(false);
-    scheduleHoverDismiss();
-  }, [scheduleHoverDismiss]);
+  }, [hidePreview]);
 
   const availableProjects = company.projects.filter(p => p.assets.length > 0 || !!p.description);
 
-  // Track whether any interactive cell is hovered in each row so the first
-  // cell stays lit (wc-thumb--first-lit) when nothing else is being hovered.
-  const [anyTopHovered,    setAnyTopHovered]    = useState(false);
-  const [anyDetailHovered, setAnyDetailHovered] = useState(false);
+  // ── Sticky notes: random palettes, rotations, ASCII doodles — re-rolled per project ──
+  const [notePalettes, noteRotations, noteDoodles] = useMemo<
+    [StickyNotePalette[], number[], Array<{ text: string; x: number; y: number }>]
+  >(() => {
+    // Fisher-Yates shuffle of the 4 palettes; take the first 3
+    const pool = [...STICKY_NOTE_PALETTES];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const palettes = pool.slice(0, 3);
+
+    // Three non-zero rotations in [-7, 7]deg
+    const rotations = Array.from({ length: 3 }, () => {
+      const r = (Math.random() * 14 - 7);
+      return r === 0 ? 3 : r;
+    });
+
+    // 3–7 ASCII doodles, scattered around the note without overlap. Live
+    // alongside the hand-drawn SVG doodles (StickyDoodles) — the SVG layer
+    // sits behind, ASCII spans absolute-positioned on top.
+    const FIELD_W = 155;
+    const FIELD_H = 160;
+    const CHAR_W  = 5.5; // px @ 0.58rem font-size
+    const LINE_H  = 14;
+    const GAP     = 4;
+
+    const count    = 5 + Math.floor(Math.random() * 5);
+    const doodlePool = [...ASCII_DOODLES] as string[];
+    for (let i = doodlePool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [doodlePool[i], doodlePool[j]] = [doodlePool[j], doodlePool[i]];
+    }
+    const candidates = doodlePool.slice(0, count);
+
+    const placed: Array<{ text: string; x: number; y: number; w: number; h: number }> = [];
+    for (const text of candidates) {
+      const w = Math.min(FIELD_W, Math.max(32, Math.ceil(text.length * CHAR_W)));
+      const h = LINE_H;
+      for (let attempt = 0; attempt < 80; attempt++) {
+        const x = Math.random() * Math.max(0, FIELD_W - w);
+        const y = Math.random() * Math.max(0, FIELD_H - h);
+        const clash = placed.some(p =>
+          x < p.x + p.w + GAP &&
+          x + w + GAP > p.x &&
+          y < p.y + p.h + GAP &&
+          y + h + GAP > p.y
+        );
+        if (!clash) {
+          placed.push({ text, x, y, w, h });
+          break;
+        }
+      }
+    }
+    const doodles = placed.map(({ text, x, y }) => ({ text, x, y }));
+
+    return [palettes, rotations, doodles];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject?.slug]);
 
   return (
-    <>
-      <div className="wc-container" aria-label={`${company.label} work gallery`}>
-        <div
-          className={exiting ? 'wc-panel wc-panel--exiting' : 'wc-panel'}
-          style={{ '--brand-color': company.color } as React.CSSProperties}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* ── Header ─────────────────────────────────────────────────────── */}
-          <div className="wc-header">
-            <span className="wc-header__label">{company.label}</span>
-            <button className="wc-header__close" onClick={onClose} aria-label="Close gallery">
-              ×
-            </button>
-          </div>
-
-          {/* ── Top carousel: one representative per project ─────────────── */}
-          {availableProjects.length > 0 ? (
-            <div className="wc-row wc-row--top">
-              <div className="wc-row__track" ref={topTrackRef}>
-                {/* Leading decorative filler cells */}
-                {Array.from({ length: FILLERS_START }, (_, fi) => (
-                  <FillerThumb key={`top-filler-start-${fi}`} index={fi} />
-                ))}
-
-                {availableProjects.map((project, i) => {
-                  const cellIndex = FILLERS_START + i;
-                  const isFirst   = i === 0;
-                  const isActive  = selectedProject?.slug === project.slug;
-                  const firstLit  = isFirst && !anyTopHovered && !isActive;
-                  return project.assets.length > 0 ? (
-                    <AssetThumb
-                      key={project.slug}
-                      url={project.assets[0]}
-                      index={cellIndex}
-                      label={project.label}
-                      active={isActive}
-                      firstLit={firstLit}
-                      onClick={() => handleProjectClick(project)}
-                      onHoverIn={() => { setAnyTopHovered(true); }}
-                      onHoverOut={() => { setAnyTopHovered(false); }}
-                      brandColor={company.color}
-                      onDimLoad={handleDimLoad}
-                    />
-                  ) : (
-                    <TextThumb
-                      key={project.slug}
-                      index={cellIndex}
-                      label={project.label}
-                      description={project.description ?? ''}
-                      skills={project.skills}
-                      leadership={project.leadership}
-                      active={isActive}
-                      firstLit={firstLit}
-                      onClick={() => handleProjectClick(project)}
-                      onHoverIn={() => { setAnyTopHovered(true); }}
-                      onHoverOut={() => { setAnyTopHovered(false); }}
-                    />
-                  );
-                })}
-
-                {/* Trailing decorative filler cells */}
-                {Array.from({ length: FILLERS_END }, (_, fi) => (
-                  <FillerThumb key={`top-filler-end-${fi}`} index={FILLERS_START + availableProjects.length + fi} />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="wc-empty"><span>coming soon</span></div>
-          )}
-
-          {/* ── Detail carousel: description card first, then all assets ── */}
-          {selectedProject && (selectedProject.assets.length > 0 || !!selectedProject.description) && (
-            <div className="wc-row wc-row--detail" key={`detail-${detailKey}`}>
-              <div className="wc-row__track" ref={detailTrackRef}>
-                {/* Leading decorative filler cells */}
-                {Array.from({ length: FILLERS_START }, (_, fi) => (
-                  <FillerThumb key={`detail-filler-start-${fi}`} index={fi} />
-                ))}
-
-                {selectedProject.description && (
-                  <DescriptionThumb
-                    index={FILLERS_START + 0}
-                    label={selectedProject.label}
-                    description={selectedProject.description}
-                    skills={selectedProject.skills}
-                    leadership={selectedProject.leadership}
-                    firstLit={!anyDetailHovered}
-                    onHoverIn={(label, description, rect, skills, leadership) => {
-                      setAnyDetailHovered(true);
-                      handleTextHoverIn(label, description, rect, skills, leadership);
-                    }}
-                    onHoverOut={() => { setAnyDetailHovered(false); handleHoverOut(); }}
-                  />
-                )}
-
-                {selectedProject.assets.map((asset, i) => {
-                  const baseOffset = selectedProject.description ? 1 : 0;
-                  const cellIndex  = FILLERS_START + baseOffset + i;
-                  const isFirst    = i === 0 && !selectedProject.description;
-                  return (
-                    <AssetThumb
-                      key={asset}
-                      url={asset}
-                      index={cellIndex}
-                      firstLit={isFirst && !anyDetailHovered}
-                      onHoverIn={(url, rect) => {
-                        setAnyDetailHovered(true);
-                        handleHoverIn(url, rect);
-                      }}
-                      onHoverOut={() => { setAnyDetailHovered(false); handleHoverOut(); }}
-                      brandColor={company.color}
-                      onDimLoad={handleDimLoad}
-                    />
-                  );
-                })}
-
-                {/* Trailing decorative filler cells */}
-                {Array.from({ length: FILLERS_END }, (_, fi) => {
-                  const contentCount = (selectedProject.description ? 1 : 0) + selectedProject.assets.length;
-                  return (
-                    <FillerThumb key={`detail-filler-end-${fi}`} index={FILLERS_START + contentCount + fi} />
-                  );
-                })}
-              </div>
-            </div>
-          )}
+    <div
+      className={`wc-container${exiting ? ' wc-container--exiting' : ''}`}
+      aria-label={`${company.label} work gallery`}
+    >
+      {/* Mobile-only close button: white circle, black X, rotates 90deg on press */}
+      <button
+        type="button"
+        className={`wc-mobile-close${closing ? ' wc-mobile-close--closing' : ''}`}
+        onClick={handleMobileClose}
+        aria-label="Close gallery"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6 L18 18 M18 6 L6 18" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
+        </svg>
+      </button>
+      <div className="wc-panel-wrap">
+      <div
+        className={exiting ? 'wc-panel wc-panel--exiting' : 'wc-panel'}
+        style={{ '--brand-color': company.color } as React.CSSProperties}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <div className="wc-header">
+          <span className="wc-header__label">{company.label}</span>
+          <button className="wc-header__close" onClick={onClose} aria-label="Close gallery">
+            ×
+          </button>
         </div>
+
+        {/* ── Top carousel: one representative per project ─────────────── */}
+        {availableProjects.length > 0 ? (
+          <div className="wc-row wc-row--top">
+            <div className="wc-row__track" ref={topTrackRef}>
+              {/* Leading decorative filler cells */}
+              {Array.from({ length: FILLERS_START }, (_, fi) => (
+                <FillerThumb key={`top-filler-start-${fi}`} index={fi} />
+              ))}
+
+              {availableProjects.map((project, i) => (
+                <TitleThumb
+                  key={project.slug}
+                  index={FILLERS_START + i}
+                  label={project.label}
+                  onClick={() => handleProjectClick(project)}
+                  brandColor={company.color}
+                />
+              ))}
+
+              {/* Trailing decorative filler cells */}
+              {Array.from({ length: FILLERS_END }, (_, fi) => (
+                <FillerThumb key={`top-filler-end-${fi}`} index={FILLERS_START + availableProjects.length + fi} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="wc-empty"><span>coming soon</span></div>
+        )}
+
+        {/* ── Detail carousel: all assets ──────────────────────────────── */}
+        {selectedProject && selectedProject.assets.length > 0 && (
+          <div className="wc-row wc-row--detail" key={`detail-${detailKey}`}>
+            <div className="wc-row__track" ref={detailTrackRef}>
+              {/* Leading decorative filler cells */}
+              {Array.from({ length: FILLERS_START }, (_, fi) => (
+                <FillerThumb key={`detail-filler-start-${fi}`} index={fi} />
+              ))}
+
+              {selectedProject.assets.map((asset, i) => {
+                const cellIndex = FILLERS_START + i;
+                const isFirst   = i === 0;
+                return (
+                  <AssetThumb
+                    key={asset}
+                    url={asset}
+                    index={cellIndex}
+                    firstLit={isFirst && !anyDetailHovered}
+                    enableMagnifier
+                    onHoverIn={() => { setAnyDetailHovered(true); }}
+                    onHoverOut={() => { setAnyDetailHovered(false); }}
+                    onClick={(rect) => togglePreview(asset, rect)}
+                    onDimLoad={handleDimLoad}
+                    brandColor={company.color}
+                  />
+                );
+              })}
+
+              {/* Trailing decorative filler cells */}
+              {Array.from({ length: FILLERS_END }, (_, fi) => (
+                <FillerThumb
+                  key={`detail-filler-end-${fi}`}
+                  index={FILLERS_START + selectedProject.assets.length + fi}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
 
-      {/* In-place hover preview — outside wc-container (pointer-events:none) */}
-      {(hoverUrl || hoverText) && hoverRect && (
-        <HoverPreview
-          url={hoverUrl ?? undefined}
-          textContent={hoverText ?? undefined}
-          rect={hoverRect}
-          visible={hoverVisible}
-          onClose={dismissHover}
-          onKeepAlive={handlePreviewKeepAlive}
-          onLeave={handleHoverOut}
-          naturalDims={hoverNaturalDims ?? undefined}
-          brandColor={company.color}
+      {/* ── Sticky notes: SIBLING of .wc-panel so gaps between notes are
+          click-through. pointer-events:none on container, :auto on each note.
+          Each note is wrapped in a .wc-note-anchor that positions it
+          absolutely relative to .wc-panel-wrap. */}
+      {selectedProject && (
+        <div className="wc-sticky-notes" key={`notes-${selectedProject.slug}`}>
+            {selectedProject.description && (
+              <div className="wc-note-anchor wc-note-anchor--detail-mid">
+                <StickyNote
+                  key={`${selectedProject.slug}-desc`}
+                  title={selectedProject.label}
+                  palette={notePalettes[0]}
+                  rotation={noteRotations[0]}
+                >
+                  <p dangerouslySetInnerHTML={{ __html: selectedProject.description }} />
+                </StickyNote>
+              </div>
+            )}
+            {((selectedProject.skills?.length ?? 0) > 0 || (selectedProject.leadership?.length ?? 0) > 0) && (
+              <div className="wc-note-anchor wc-note-anchor--top-selected">
+                <StickyNote
+                  key={`${selectedProject.slug}-skills`}
+                  title="skills"
+                  palette={notePalettes[1]}
+                  rotation={noteRotations[1]}
+                >
+                  <ul>
+                    {selectedProject.skills?.map(s => <li key={s}>{s}</li>)}
+                    {selectedProject.leadership?.map(l => <li key={l}>{l}</li>)}
+                  </ul>
+                </StickyNote>
+              </div>
+            )}
+            <div className="wc-note-anchor wc-note-anchor--detail-br">
+              <StickyNote
+                key={`${selectedProject.slug}-doodle`}
+                palette={notePalettes[2]}
+                rotation={noteRotations[2]}
+              >
+                <div className="sn-doodle-field">
+                  {/* SVG hand-drawn squiggles/spirals/etc — sits behind ASCII */}
+                  <StickyDoodles
+                    fieldWidth={155}
+                    fieldHeight={160}
+                    color={notePalettes[2].divider}
+                  />
+                  {noteDoodles.map((d, i) => (
+                    <span
+                      key={i}
+                      className="sn-doodle"
+                      style={{ left: `${d.x}px`, top: `${d.y}px` }}
+                    >
+                      {d.text}
+                    </span>
+                  ))}
+                </div>
+              </StickyNote>
+            </div>
+        </div>
+      )}
+      </div>
+
+      {/* Click-triggered image preview — fixed position, escapes carousel clipping */}
+      {previewUrl && previewRect && (
+        <ImagePreview
+          key={previewUrl}
+          url={previewUrl}
+          rect={previewRect}
+          naturalDims={previewDims ?? undefined}
+          onDismiss={hidePreview}
         />
       )}
-    </>
+    </div>
   );
 }

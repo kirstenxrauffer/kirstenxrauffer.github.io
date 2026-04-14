@@ -40,7 +40,7 @@ export default function WatercolorCanvas({
       antialias: false,
       powerPreference: 'high-performance',
     });
-    renderer.setPixelRatio(1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight, false);
 
     // ---- Shared fullscreen quad + ortho camera ----------------------------
@@ -142,6 +142,7 @@ export default function WatercolorCanvas({
       uBlotchiness:    { value: D.blotchiness },
       uWobbleStrength: { value: D.wobbleStrength },
       uWarpDisplace:   { value: D.warpDisplace },
+      uClearProgress:  { value: 0 },
       uPetals:         { value: petalScene.texture },
     };
 
@@ -171,17 +172,23 @@ export default function WatercolorCanvas({
       gsap.to(progressObj, {
         value: REVEAL_PROGRESS_TARGET,
         duration: REVEAL_DURATION,
-        delay: 1.5,
         ease: 'power2.out',
         onUpdate: () => { passUniforms.uProgress.value = progressObj.value; },
       });
     };
 
-    // ---- Hero image load --------------------------------------------------
-    // Tween starts in parallel with the image load — the watercolor animates on
-    // paper texture while the image loads, then the pre-blurred image is swapped
-    // in seamlessly when ready.
-    startRevealTween();
+    // ---- Clear-zone bloom -------------------------------------------------
+    // The center white blotch + pigment ring bloom on page load BEFORE the
+    // image reveal starts. Driven by its own uniform so legibility area is
+    // established first, then the image fills in around it.
+    const clearObj = { value: 0 };
+    gsap.to(clearObj, {
+      value: 1.0,
+      duration: 1.5,
+      ease: 'power2.out',
+      onUpdate: () => { passUniforms.uClearProgress.value = clearObj.value; },
+      onComplete: startRevealTween,
+    });
 
     const colorTex = texLoader.load(
       image ?? pickHeroImage(),
@@ -302,6 +309,7 @@ export default function WatercolorCanvas({
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
       gsap.killTweensOf(progressObj);
+      gsap.killTweensOf(clearObj);
 
       warpRT.dispose();
       preBlurRTs[0].dispose();

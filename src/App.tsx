@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Route, Routes } from 'react-router-dom';
-import { useAppSelector } from './app/hooks';
 import { FairyCanvas } from './features/fairies';
 import { WatercolorCanvas } from './features/watercolor';
 import { HERO_IMAGES } from './features/watercolor/constants';
@@ -46,8 +45,6 @@ const SceneBackground = React.memo(function SceneBackground({
 });
 
 function App() {
-  const mode = useAppSelector((s) => s.theme.mode);
-
   const [sceneQueue] = useState<string[]>(() => shuffle(HERO_IMAGES));
 
   // revealStarted: fires immediately on canvas mount → enables section entrance animation
@@ -65,16 +62,14 @@ function App() {
   const handleRevealStart = useCallback(() => setRevealStarted(true), []);
   const handlePalette     = useCallback((p: string[]) => setPalette(p), []);
 
-  // Timer-based reveal completion — independent of GSAP / canvas lifecycle / StrictMode.
-  // Fires (REVEAL_DURATION + 1.5s tween delay - 1.8s early) after revealStarted.
-  // power2.out easing means the animation is visually ~94% complete at 75% of duration;
-  // we surface the nav then rather than waiting for the imperceptible tail end.
-  // StrictMode double-fire is safe: cleanup cancels the first timer, second is canonical.
+  // Surface the nav right after the hero title finishes scattering in
+  // (scatter variant: max 0.7s random offset + 1.1s animation ≈ 1.8s). Tied
+  // to title settle rather than the full watercolor reveal so nav appears early.
   useEffect(() => {
     if (!revealStarted) return;
     const id = window.setTimeout(
       () => setRevealComplete(true),
-      5500,
+      1250,
     );
     return () => clearTimeout(id);
   }, [revealStarted]);
@@ -124,7 +119,7 @@ function App() {
   ].filter(Boolean).join(' ');
 
   return (
-    <div className={`app app--${mode}`}>
+    <div className="app">
       <SceneBackground
         currentImage={currentImage}
         fadingOut={false}

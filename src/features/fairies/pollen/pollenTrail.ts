@@ -81,8 +81,31 @@ let _lastSpawnAt = 0;
 let _lastX = 0;
 let _lastY = 0;
 
+// Separate rate-limit state for fairy-sourced stamps so navi's trail never
+// suppresses cursor stamps (they share the same ring buffer but tick independently).
+let _lastFairySpawnAt = 0;
+
 function reducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Called from sketch.ts when navi is in the zoom state.
+ * Uses its own rate-limit clock so navi's trail never suppresses cursor stamps.
+ */
+export function addFairyPollenStamp(x: number, y: number, now: number): void {
+  if (reducedMotion()) return;
+  if (now - _lastFairySpawnAt < SPAWN_INTERVAL_MS) return;
+
+  stamps.push({
+    x,
+    y,
+    createdAt: now,
+    rngSeed: Math.floor(Math.random() * 1e9),
+    sparklePhase: Math.random() * Math.PI * 2,
+  });
+
+  _lastFairySpawnAt = now;
 }
 
 /**

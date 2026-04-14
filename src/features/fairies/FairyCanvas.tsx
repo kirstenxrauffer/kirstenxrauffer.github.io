@@ -14,6 +14,18 @@ type Props = {
 // Wings extend ~27 px above centre at current scale; 50 px gives a clear gap.
 const LABEL_OFFSET_Y = 50;
 
+// Reads screen-space centres of the top-level nav buttons. Returns [] if the
+// nav hasn't mounted yet — the FSM falls back to no-op when the list is empty.
+function readNavLinkCenters(): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  document.querySelectorAll('.nav-menu__btn').forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
+    out.push({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+  });
+  return out;
+}
+
 export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
   const hostRef       = useRef<HTMLDivElement>(null);
   const labelRef      = useRef<HTMLDivElement>(null);
@@ -70,6 +82,14 @@ export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
       // Record position so the FSM knows where to compute the flee target from.
       navArea.clickX = e.clientX;
       navArea.clickY = e.clientY;
+      // Only request orbit on the OPENING click; closing clicks shouldn't re-trigger.
+      // Sync navArea.active synchronously so the next p5 frame doesn't see a stale
+      // value before React commits the navOpen state via the useEffect below.
+      if (!navArea.active) {
+        navArea.navLinks = readNavLinkCenters();
+        navArea.zoomRequested = true;
+        navArea.active = true;
+      }
       onFairyClick();
     };
     window.addEventListener('click', handleClick);
@@ -84,10 +104,17 @@ export default function FairyCanvas({ onFairyClick, navOpen }: Props) {
     const unmountDot = mountCursorDot();
 
     (async () => {
-      const [{ default: P5 }, { makeSketch }] = await Promise.all([
-        import('p5'),
-        import('./sketch'),
-      ]);
+      // Sequential import — NOT Promise.all. ./sketch statically imports
+      // p5.brush, which evaluates module-load-time code that registers its
+      // p5 lifecycle hooks via `if (typeof p5 !== "undefined") p5.registerAddon(...)`.
+      // p5 v2 ESM does NOT publish itself to window, so we publish it here
+      // before p5.brush ever evaluates. Without this, the hooks never register
+      // and brush operations on a non-active p5 instance silently misroute
+      // (see StickyDivider for the same fix and longer note).
+      const { default: P5 } = await import('p5');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).p5 = P5;
+      const { makeSketch } = await import('./sketch');
       if (cancelled || !hostRef.current) return;
       instance = new P5(makeSketch({
         onHoverChange: (h) => {
