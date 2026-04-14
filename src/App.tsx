@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { FairyCanvas } from './features/fairies';
 import { WatercolorCanvas } from './features/watercolor';
 import { HERO_IMAGES } from './features/watercolor/constants';
@@ -58,6 +58,7 @@ function App() {
 
   const routesRef       = useRef<HTMLDivElement>(null);
   const routesInnerRef  = useRef<HTMLDivElement>(null);
+  const location        = useLocation();
 
   // Measure the routed content height and push it to --section-h on the outer
   // wrapper so the nav can position itself via a transitioned translateY.
@@ -65,33 +66,43 @@ function App() {
   // the parent's computed height which jumps instantly on route swap. Driving
   // a transform off a CSS variable lets the transition on .nav-menu interpolate
   // the new offset smoothly.
+  // Apply --section-h = measured content height (in px). Ignores 0-height
+  // frames so the lazy-route Suspense fallback never drags the nav through 0.
+  const applySectionHeight = useCallback(() => {
+    const inner = routesInnerRef.current;
+    const outer = routesRef.current;
+    if (!inner || !outer) return;
+    const h = inner.offsetHeight;
+    if (h === 0) return;
+    outer.style.setProperty('--section-h', `${h}px`);
+  }, []);
+
+  // Initial measurement + ResizeObserver for ambient height changes (window
+  // resize, font swap, etc). Transition is gated until after the first
+  // measurement commits so the page-load paint doesn't animate 0 → measured.
   useLayoutEffect(() => {
     const inner = routesInnerRef.current;
     const outer = routesRef.current;
     if (!inner || !outer) return;
-    const apply = () => {
-      const h = inner.offsetHeight;
-      // Ignore 0-height frames (Suspense fallback briefly renders null on
-      // lazy-route swap) — the nav would otherwise animate through 0 and
-      // back, which looks like a double-jump.
-      if (h === 0) return;
-      outer.style.setProperty('--section-h', `${h}px`);
-    };
-    apply();
-    // Enable the nav transition only on the next frame, AFTER the initial
-    // --section-h value has been committed. Otherwise the very first paint
-    // transitions from 0px → measured height, which looks like the nav is
-    // sliding into place when the page loads.
+    applySectionHeight();
     const raf = requestAnimationFrame(() => {
       outer.dataset.navReady = 'true';
     });
-    const ro = new ResizeObserver(apply);
+    const ro = new ResizeObserver(applySectionHeight);
     ro.observe(inner);
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, []);
+  }, [applySectionHeight]);
+
+  // Re-measure synchronously on every route change, BEFORE the browser
+  // paints. ResizeObserver is async and fires after one paint frame — that
+  // frame briefly shows the new route's content with the old route's
+  // --section-h, which is the "nav appears too low/high then snaps" flash.
+  useLayoutEffect(() => {
+    applySectionHeight();
+  }, [location.pathname, applySectionHeight]);
 
   const [navOpen, setNavOpen] = useState(false);
   const [palette, setPalette] = useState<string[]>([]);
