@@ -1,5 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { WaveText } from '../components/WaveText';
+import { ScatterCycle } from '../components/ScatterCycle';
 import { PRESS_REFERENCES, WORK_MANIFEST } from '../features/work/workManifest';
 
 const GAP = 1.6; // seconds between each line starting
@@ -53,7 +54,10 @@ function Home() {
         />
         <script type="application/ld+json">{JSON.stringify(PERSON_JSONLD)}</script>
       </Helmet>
-      <WaveText as="h1" variant="scatter" text="hi, i'm kirsten." delay={0} />
+      <h1>
+        <WaveText as="span" variant="scatter" text="hi, i'm " delay={0} />
+        <ScatterCycle words={['kirsten.', 'k.k.', 'kirbs', 'kir']} />
+      </h1>
       <WaveText as="p" variant="drift" text="i'm a full-stack engineer" delay={GAP} />
       <WaveText as="p" variant="drift" text="who loves the intersection" delay={GAP * 2} />
       <WaveText as="p" variant="drift" text="of art and code" delay={GAP * 3} />

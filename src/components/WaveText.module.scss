@@ -53,6 +53,20 @@
   to   { opacity: 1; }
 }
 
+// Exit counterpart for the cycling name — letters fade out at random offsets,
+// leaving a brief void before the next nickname scatters in.
+.scatter-letter-out {
+  display: inline-block;
+  will-change: opacity;
+  animation: fade-out 0.6s ease-in both;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 // ── Drift variant ─────────────────────────────────────────────────────────────
 // Letters float up gently from a small offset while a blur clears and opacity
 // rises. No spring overshoot — purely dreamy. Good for body copy that should

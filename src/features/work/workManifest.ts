@@ -163,7 +163,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'digital-asset-management',
         label: 'rich content',
         description: 'Full-stack engineer on the rich content team, supporting Grainger\'s millions of products and all their supporting materials, both static and dynamic: product images, compliance documents like Energy Guides, 2D and 3D CAD files, videos, copy, and more. Sole engineer to decouple the frontend codebase from a massive monorepo, converting it to a microfrontend, paving the way for other engineering teams. Currently improving search and upload UX across all asset types, and building an ML classification pipeline using AWS tooling. The internal system is proprietary and cannot be shown so enjoy these GCOM gifs instead.',
-        skills: ['Full-stack', 'React', 'TypeScript', 'DAM'],
+        skills: ['Full-stack', 'React', 'TypeScript', 'PostgreSQL', 'AWS', 'Machine Learning', 'Akamai', 'SpringBoot', 'Java', 'DAM'],
         assets: [
           '/work/grainger/digital-asset-management/cad.gif',
           '/work/grainger/digital-asset-management/lf.gif',
@@ -207,7 +207,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'document-viewer',
         label: 'document viewer',
         description: 'Built the document viewer in its final, accessible for LinkedIn Learning, enabling enterprises to upload custom documents for their employees to view. Built framework-agnostic in vanilla JS. Led accessibility work for the document viewer, adapting Mozilla\'s PDF.js to parse tagged PDFs as semantic HTML for screen readers. Co-authored the <a href="https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents" target="_blank" rel="noopener noreferrer">LinkedIn Engineering blog post</a> on the architecture. Nominated for LinkedIn\'s Engineering Award for Craftsmanship, one of 4 nominees out of 4,000+ engineers.',
-        skills: ['React', 'TypeScript', 'Accessibility', 'Java', 'Performance'],
+        skills: ['Ember', 'Accessibility', 'JavaScript', 'Performance'],
         leadership: ['Engineering Award nominee', 'Co-authored eng blog post', 'Cross-org a11y lead'],
         assets: [
           '/work/linkedin/document-viewer/1700688379926.png',
@@ -220,7 +220,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'skills-path',
         label: 'skills path',
         description: 'Skills-based hiring pipeline on LinkedIn that pairs curated Learning courses with Skill Assessments. Candidates who pass are guaranteed a recruiter interview, removing degree/credential gatekeeping. Piloted with Gap Inc., BlackRock, Citrix, Gusto, and others in 2021. Served as team lead while simultaneously leading UI for the Skill Assessments team. Press: <a href="https://shrm.org" target="_blank" rel="noopener noreferrer">SHRM</a>, <a href="https://gapinc.com" target="_blank" rel="noopener noreferrer">Gap Inc. press release</a>, <a href="https://linkedin.com/business/talent/blog/product-tips/introducing-skills-path" target="_blank" rel="noopener noreferrer">LinkedIn blog</a>.',
-        skills: ['React', 'TypeScript', 'Full-stack', 'Java'],
+        skills: ['Ember', 'JavaScript'],
         assets: [
           '/work/linkedin/skills-path/1618352849053.jpeg',
           '/work/linkedin/skills-path/1618352850150.gif',
@@ -231,7 +231,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'learning',
         label: 'enterprise content',
         description: 'Led projects giving enterprise admins the ability to upload their own content to LinkedIn Learning: documents, videos, learning paths, and collections. Personally drove the collaboration between LinkedIn Learning\'s consumer and enterprise surfaces — I was the connective tissue across those teams, unifying shared components like cards through both process and code so both products stayed in sync. Earned Hackday Master by winning 5 global LinkedIn hackathons, one of which resulted in a US patent.',
-        skills: ['React', 'TypeScript', 'Java', 'Admin tooling'],
+        skills: ['Ember', 'JavaScript'],
         leadership: ['5× Hackday Champion', 'US Patent holder'],
         assets: [
           '/work/linkedin/learning/learning.gif',
@@ -249,7 +249,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'dynamics365',
         label: 'dynamics 365',
         description: 'Worked on the Dynamics 365 product building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest. As the office began venturing into custom SPAs, I taught web development internally to prep colleagues for new POC projects focused on solutioning for vendor portals, built in C++ and AngularJS.',
-        skills: ['Dynamics 365', 'C++', 'AngularJS', 'ERP'],
+        skills: ['Dynamics 365', 'C++', 'AngularJS', 'X++', 'SQL', 'ERP'],
         leadership: ['Internal engineering trainer'],
         assets: [
           '/work/microsoft/dynamics365/dynamics365-screenshot.png',
