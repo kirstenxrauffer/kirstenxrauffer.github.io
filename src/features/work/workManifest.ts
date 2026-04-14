@@ -79,6 +79,36 @@ export const WORK_MANIFEST: CompanyWork[] = [
     color: '#5865F2',
     projects: [
       {
+        slug: 'custom-app-icons',
+        label: 'custom app icons (mobile)',
+        description: 'Nitro feature letting subscribers swap the Discord home screen icon from a curated library, including seasonal drops like Halloween. Launched September 2023 with ~20 icons. Advocated internally for users to keep their chosen icon even after Nitro expires. Intentionally built easter eggs to drive organic engagement and discovery: the Pirate icon randomizes its display name on every tap, and a hidden interaction on the settings page has yet to be publicly discovered. Strong adoption and Nitro conversion, making this one of our top perks that our team shipped.',
+        skills: ['React Native', 'iOS', 'TypeScript', 'UX Design'],
+        leadership: ['Cross-functional advocacy'],
+        assets: [
+          '/work/discord/custom-app-icons/icon-options-preview.jpg',
+          '/work/discord/custom-app-icons/new-icon-packs-preview.webp',
+          '/work/discord/custom-app-icons/custom_app_icon_home_screen.webp',
+          '/work/discord/custom-app-icons/custom_app_icon_selection.webp',
+          '/work/discord/custom-app-icons/custom_app_icon_settings.webp',
+        ],
+      },
+      {
+        slug: 'custom-desktop-icons',
+        label: 'custom desktop icons',
+        description: 'Desktop-side implementation of Discord\'s custom app icon Nitro perk. Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, UX, and marketing; adapted mobile icon assets for desktop without support necessary from the core art team; shipped within 2 single sprints. Strong adoption among our users. Advocated for users to keep their chosen icon after Nitro expires, confirmed in the wild: <a href="https://reddit.com/r/discordapp/comments/1kmcpdk/" target="_blank" rel="noopener noreferrer">reddit.com/r/discordapp/comments/1kmcpdk/</a>',
+        skills: ['React', 'Electron', 'TypeScript', 'UX Design'],
+        leadership: ['Pitched to Head of Product', 'End-to-end ownership'],
+        assets: [
+          '/work/discord/custom-desktop-icons/blurple-twilight-desktop.webp',
+          '/work/discord/custom-desktop-icons/icon-options-preview.jpg',
+          '/work/discord/custom-desktop-icons/new-icon-packs-preview.webp',
+          '/work/discord/custom-desktop-icons/ezgif-2-3bf8156bec.gif',
+          '/work/discord/custom-desktop-icons/867577c9-651c-4de0-b7b5-202456f5f4db.webp',
+          '/work/discord/custom-desktop-icons/a47c3ad0-848b-4d68-b2a0-d21fa66ee248.webp',
+          '/work/discord/custom-desktop-icons/e8df9be9-6fd6-4c02-ab7b-ef0b5cf92f9a.webp',
+        ],
+      },
+      {
         slug: 'super-reactions',
         label: 'super reactions',
         description: 'Nitro feature that fires an animated burst effect when reacting to a message, visible to everyone in the chat. Animations were built with Lottie; we extracted the top colors from each emoji and piped them directly into the animation so a fire emoji bursts in orange, a purple heart ripples in violet, and so on, making each animation unique. Lead the Mobile Super Reactions work, using Swift, Kotlin, and Objective-C across iOS and Android while operating as the Mobile Champion for the team, and 1 of only 6 mobile engineers on the Discord iOS oncall rotation, handling release preps & releases. Touched core chat surfaces, and gave the mobile both an inline animation, and a full-screen tap animation. Official demo: <a href="https://youtube.com/watch?v=IIRLMV9SZds" target="_blank" rel="noopener noreferrer">youtube.com/watch?v=IIRLMV9SZds</a> · <a href="https://discord.com/blog/super-reactions-make-emoji-burst-to-life-discord-nitro" target="_blank" rel="noopener noreferrer">discord.com/blog/super-reactions-make-emoji-burst-to-life-discord-nitro</a>',
@@ -113,36 +143,6 @@ export const WORK_MANIFEST: CompanyWork[] = [
         ],
       },
       {
-        slug: 'custom-app-icons',
-        label: 'custom app icons (mobile)',
-        description: 'Nitro feature letting subscribers swap the Discord home screen icon from a curated library, including seasonal drops like Halloween (Avatar → User Settings → App Settings → App Icon). Launched September 2023 with ~20 icons. Advocated internally for users to keep their chosen icon even after Nitro expires, confirmed working in the wild: <a href="https://reddit.com/r/discordapp/comments/1kmcpdk/" target="_blank" rel="noopener noreferrer">reddit.com/r/discordapp/comments/1kmcpdk/</a>. Intentionally built easter eggs to drive organic engagement and discovery: the Pirate icon randomizes its display name on every tap, and a hidden interaction on the settings page has yet to be publicly discovered. Strong adoption and Nitro conversion, making this one of our top perks that our team shipped.',
-        skills: ['React Native', 'iOS', 'TypeScript', 'UX Design'],
-        leadership: ['Cross-functional advocacy'],
-        assets: [
-          '/work/discord/custom-app-icons/icon-options-preview.jpg',
-          '/work/discord/custom-app-icons/new-icon-packs-preview.webp',
-          '/work/discord/custom-app-icons/custom_app_icon_home_screen.webp',
-          '/work/discord/custom-app-icons/custom_app_icon_selection.webp',
-          '/work/discord/custom-app-icons/custom_app_icon_settings.webp',
-        ],
-      },
-      {
-        slug: 'custom-desktop-icons',
-        label: 'custom desktop icons',
-        description: 'Desktop-side implementation of Discord\'s custom app icon Nitro perk. Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, UX, and marketing; adapted mobile icon assets for desktop without support necessary from the core art team; shipped within 2 single sprints. Strong adoption among our users. Advocated for users to keep their chosen icon after Nitro expires, confirmed in the wild: <a href="https://reddit.com/r/discordapp/comments/1kmcpdk/" target="_blank" rel="noopener noreferrer">reddit.com/r/discordapp/comments/1kmcpdk/</a>',
-        skills: ['React', 'Electron', 'TypeScript', 'UX Design'],
-        leadership: ['Pitched to Head of Product', 'End-to-end ownership'],
-        assets: [
-          '/work/discord/custom-desktop-icons/blurple-twilight-desktop.webp',
-          '/work/discord/custom-desktop-icons/icon-options-preview.jpg',
-          '/work/discord/custom-desktop-icons/new-icon-packs-preview.webp',
-          '/work/discord/custom-desktop-icons/ezgif-2-3bf8156bec.gif',
-          '/work/discord/custom-desktop-icons/867577c9-651c-4de0-b7b5-202456f5f4db.webp',
-          '/work/discord/custom-desktop-icons/a47c3ad0-848b-4d68-b2a0-d21fa66ee248.webp',
-          '/work/discord/custom-desktop-icons/e8df9be9-6fd6-4c02-ab7b-ef0b5cf92f9a.webp',
-        ],
-      },
-      {
         slug: '500mb-uploads',
         label: '500mb uploads',
         description: 'My first project at Discord. Nitro subscribers were capped at 100MB uploads, so I migrated file storage from Discord\'s own infrastructure to Google Cloud Storage to push that to 500MB. Free users stay at 10MB; Nitro subscribers now get 50x that, enabling large video recordings, high-res assets, and game captures shared directly in chat.',
@@ -162,7 +162,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'digital-asset-management',
         label: 'rich content',
-        description: 'Full-stack engineer on the rich content team, supporting Grainger\'s millions of products and all their supporting materials, both static and dynamic: product images, compliance documents like Energy Guides, 2D and 3D CAD files, videos, copy, and more. Sole engineer to decouple the frontend codebase from a massive monorepo, converting it to a microfrontend, paving the way for other engineering teams. Currently improving search and upload UX across all asset types, and building an ML classification pipeline using AWS tooling. The internal system is proprietary and cannot be shown so enjoy these GCOM gifs instead.',
+        description: 'Full-stack engineer on the rich content team, providing Grainger\'s millions of products with digital assets, both static and dynamic: product images, compliance documents like Energy Guides, 2D and 3D CAD files, videos, copy, and more. Sole engineer to decouple the frontend codebase from a massive monorepo, converting it to a microfrontend, paving the way for other engineering teams. Currently improving search and upload UX across all asset types, and building an ML classification pipeline using AWS tooling. The internal system we are building is proprietary and cannot be shown so pls enjoy these GCOM gifs instead.',
         skills: ['Full-stack', 'React', 'TypeScript', 'PostgreSQL', 'AWS', 'Machine Learning', 'Akamai', 'SpringBoot', 'Java', 'DAM'],
         assets: [
           '/work/grainger/digital-asset-management/cad.gif',
@@ -179,7 +179,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'homepage',
         label: '2.0 card components',
-        description: 'Developed the bulk of the new 2.0 card components used across the site for mobile and desktop web on the Home and Listing pages. Worked closely with accessibility, design, PM, and engineering partners across both product teams and the horizontal design system team. Also delivered the 2.0 bubble navigation.',
+        description: 'Developed the bulk of the new 2.0 card components for mobile and desktop web, largely targeted for the Home and Listing pages. Worked closely with accessibility, design, PM, and engineering partners across both product teams and the horizontal design system team. Also delivered the 2.0 bubble navigation.',
         skills: ['React', 'TypeScript', 'CSS', 'Accessibility', 'Design Systems'],
         assets: [
           '/work/ulta/homepage/hero-card.gif',
@@ -206,7 +206,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'document-viewer',
         label: 'document viewer',
-        description: 'Built the document viewer in its final, accessible for LinkedIn Learning, enabling enterprises to upload custom documents for their employees to view. Built framework-agnostic in vanilla JS. Led accessibility work for the document viewer, adapting Mozilla\'s PDF.js to parse tagged PDFs as semantic HTML for screen readers. Co-authored the <a href="https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents" target="_blank" rel="noopener noreferrer">LinkedIn Engineering blog post</a> on the architecture. Nominated for LinkedIn\'s Engineering Award for Craftsmanship, one of 4 nominees out of 4,000+ engineers.',
+        description: 'Built the raw document viewer used on LinkedIn Learning in its final, accessible form, enabling enterprises to upload custom documents for their org. Built framework-agnostic in vanilla JS. Adapted Mozilla\'s PDF.js to parse tagged PDFs as semantic HTML for screen readers. Co-authored the <a href="https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents" target="_blank" rel="noopener noreferrer">LinkedIn Engineering blog post</a> on the architecture. Nominated for LinkedIn\'s Engineering Award for Craftsmanship, one of 4 nominees out of 4,000+ engineers.',
         skills: ['Ember', 'Accessibility', 'JavaScript', 'Performance'],
         leadership: ['Engineering Award nominee', 'Co-authored eng blog post', 'Cross-org a11y lead'],
         assets: [
@@ -230,7 +230,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'learning',
         label: 'enterprise content',
-        description: 'Led projects giving enterprise admins the ability to upload their own content to LinkedIn Learning: documents, videos, learning paths, and collections. Personally drove the collaboration between LinkedIn Learning\'s consumer and enterprise surfaces — I was the connective tissue across those teams, unifying shared components like cards through both process and code so both products stayed in sync. Earned Hackday Master by winning 5 global LinkedIn hackathons, one of which resulted in a US patent.',
+        description: 'Led projects giving enterprise admins the ability to upload their own content to LinkedIn Learning: documents, videos, learning paths, and collections. Personally drove the collaboration between LinkedIn Learning\'s consumer and enterprise surfaces, unifying shared components like cards through both process and code so both products stayed in sync. Earned Hackday Master by winning 5 global LinkedIn hackathons, one of which resulted in a US patent.',
         skills: ['Ember', 'JavaScript'],
         leadership: ['5× Hackday Champion', 'US Patent holder'],
         assets: [
@@ -248,7 +248,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'dynamics365',
         label: 'dynamics 365',
-        description: 'Worked on the Dynamics 365 product building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest. As the office began venturing into custom SPAs, I taught web development internally to prep colleagues for new POC projects focused on solutioning for vendor portals, built in C++ and AngularJS.',
+        description: 'Worked on the Dynamics 365 product building out flows across vendors, voyages, inventory, and more. Based in København, Denmark, I collaborated with globally distributed sister teams in Seattle and the Midwest. As the office began venturing into single page apps, I taught web development internally to prep colleagues for new POC projects focused on solutioning for vendor portals, built in C++ and AngularJS.',
         skills: ['Dynamics 365', 'C++', 'AngularJS', 'X++', 'SQL', 'ERP'],
         leadership: ['Internal engineering trainer'],
         assets: [
