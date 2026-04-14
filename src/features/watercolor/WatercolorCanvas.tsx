@@ -225,9 +225,11 @@ export default function WatercolorCanvas({
 
     // ---- Render loop -------------------------------------------------------
     let warpFrozen = false;
+    let paused = document.hidden;
 
     const render = () => {
       if (disposed) return;
+      if (paused) return;
       animFrameId = requestAnimationFrame(render);
 
       const elapsed = getElapsed();
@@ -302,12 +304,27 @@ export default function WatercolorCanvas({
     };
     window.addEventListener('resize', onResize);
 
+    // Pause the render loop when the tab is backgrounded — saves GPU/CPU
+    // on inactive tabs. Resume by kicking off a fresh rAF on return.
+    const onVisibility = () => {
+      if (disposed) return;
+      if (document.hidden) {
+        paused = true;
+        cancelAnimationFrame(animFrameId);
+      } else if (paused) {
+        paused = false;
+        render();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     // ---- Cleanup ----------------------------------------------------------
     return () => {
       disposed = true;
       cancelAnimationFrame(animFrameId);
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', onVisibility);
       gsap.killTweensOf(progressObj);
       gsap.killTweensOf(clearObj);
 

@@ -550,9 +550,10 @@ void main() {
     // wash fully-opaque petals 71% back toward PAPER_COLOR if they were
     // composited before the reveal.  Paper grain still applies; Bousseau density
     // is skipped because dTotal is derived from image-space data (see below).
-    vec2 petalGrainWarp = (texture2D(uPaper, fract(vUv * 2.3 + vec2(0.37, 0.62))).rg * 2.0 - 1.0) * 0.01;
-    vec2 petalUV    = vUv + warpPacked.rg * uWarpDisplace * 0.5 + petalGrainWarp;
-    vec4 petalPx    = texture2D(uPetals, petalUV);
+    // Sample petals 1:1 with screen pixels so MSAA edges stay crisp.
+    // Any per-pixel UV warp here (paper-grain, fBm displace) would crawl as
+    // the petal translates through the static screen-space noise field.
+    vec4 petalPx    = texture2D(uPetals, vUv);
 
     if (petalPx.a > 0.005) {
         // Paper grain through petals — same weight as the background

@@ -15,6 +15,13 @@ function isVideo(url: string): boolean {
   return /\.(mp4|mov|webm)$/i.test(url);
 }
 
+// For every .gif we pre-extract a ~50KB first-frame JPG poster (see build step).
+// posterFor() returns that path so GIF thumbnails can show an instant static
+// preview and defer the multi-MB animated GIF fetch until they scroll into view.
+function posterFor(url: string): string | null {
+  return /\.gif$/i.test(url) ? url.replace(/\.gif$/i, '.poster.jpg') : null;
+}
+
 // ── ImagePreview ──────────────────────────────────────────────────────────────
 // Click-triggered modal: starts visually aligned with the source thumbnail's
 // rect (FLIP-style initial transform), then transitions to a centered viewport
@@ -53,7 +60,14 @@ function ImagePreview({ url, rect, naturalDims, onDismiss }: ImagePreviewProps) 
     : rect.width / rect.height;
   const maxW = vw - margin * 2;
   const maxH = vh - margin * 2;
-  const modalW = Math.min(maxW, maxH * aspect);
+  // Cap at the image's natural pixel size so small images render at 1:1 rather
+  // than being upscaled to fill the viewport. Videos/unknown dims fall back to
+  // the viewport bounds.
+  const natW = naturalDims?.w ?? Infinity;
+  const natH = naturalDims?.h ?? Infinity;
+  const boundW = Math.min(maxW, natW);
+  const boundH = Math.min(maxH, natH);
+  const modalW = Math.min(boundW, boundH * aspect);
   const modalH = modalW / aspect;
   const modalLeft = (vw - modalW) / 2;
   const modalTop  = (vh - modalH) / 2;
@@ -131,12 +145,50 @@ function AssetThumb({
   // Portrait orientation → show full image (contain) on dark background instead of cropping
   const [isPortrait, setIsPortrait] = useState(false);
 
+  // rAF-throttle mousemove so magnifier state updates at most once per frame —
+  // avoids a React re-render per pointer event on fast mice.
+  const magRafRef = useRef<number | null>(null);
+  const magPendingRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const handleMagMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    setMagGlass({ x: e.clientX - rect.left, y: e.clientY - rect.top, w: rect.width, h: rect.height });
+    magPendingRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, w: rect.width, h: rect.height };
+    if (magRafRef.current !== null) return;
+    magRafRef.current = requestAnimationFrame(() => {
+      magRafRef.current = null;
+      if (magPendingRef.current) setMagGlass(magPendingRef.current);
+    });
   }, []);
 
-  const handleMagLeave = useCallback(() => setMagGlass(null), []);
+  const handleMagLeave = useCallback(() => {
+    if (magRafRef.current !== null) { cancelAnimationFrame(magRafRef.current); magRafRef.current = null; }
+    magPendingRef.current = null;
+    setMagGlass(null);
+  }, []);
+
+  useEffect(() => () => {
+    if (magRafRef.current !== null) cancelAnimationFrame(magRafRef.current);
+  }, []);
+
+  // Poster-first lazy load for GIFs: show the static first-frame JPG immediately,
+  // swap to the animated GIF only once the thumbnail is near the viewport. The
+  // magnifier always points at `url` (the real GIF) — by the time a user hovers,
+  // the thumbnail is definitionally visible, so IO has already fired the swap.
+  const poster = posterFor(url);
+  const [imgSrc, setImgSrc] = useState<string>(poster ?? url);
+  const imgRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    if (!poster) return;
+    const el = imgRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) {
+        setImgSrc(url);
+        io.disconnect();
+      }
+    }, { rootMargin: '200px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [poster, url]);
 
   const isMag = enableMagnifier && !isVideo(url);
 
@@ -170,7 +222,10 @@ function AssetThumb({
           <video src={url} muted loop playsInline autoPlay aria-hidden="true" />
         ) : (
           <img
-            src={url} alt=""
+            ref={imgRef}
+            src={imgSrc} alt=""
+            loading="lazy"
+            decoding="async"
             onLoad={(e) => {
               const img = e.currentTarget;
               if (img.naturalWidth && img.naturalHeight) {
@@ -384,14 +439,16 @@ export default function WorkCarousel({ company, onClose, exiting }: {
     }
   }, []);
 
-  // Eager preload of natural dims for every image in the company so the first
-  // preview click can size the popup immediately. Cached images resolve sync;
-  // others trickle in well before user interaction.
+  // Preload natural dims for just the selected project's images so preview
+  // click can size the popup without waiting. Scoped to the active project
+  // (not the whole company) to avoid an N×projects prefetch storm on open.
   useEffect(() => {
-    const urls = company.projects.flatMap(p => p.assets).filter(u => !isVideo(u));
+    if (!selectedProject) return;
+    const urls = selectedProject.assets.filter(u => !isVideo(u));
     urls.forEach(url => {
       if (naturalDimsRef.current[url]) return;
       const img = new Image();
+      img.decoding = 'async';
       img.onload = () => {
         if (img.naturalWidth && img.naturalHeight) {
           naturalDimsRef.current[url] = { w: img.naturalWidth, h: img.naturalHeight };
@@ -399,7 +456,7 @@ export default function WorkCarousel({ company, onClose, exiting }: {
       };
       img.src = url;
     });
-  }, [company]);
+  }, [selectedProject]);
 
   useEffect(() => {
     setSelectedProject(null);

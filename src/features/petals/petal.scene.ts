@@ -62,6 +62,7 @@ export class PetalScene {
       magFilter:     THREE.LinearFilter,
       depthBuffer:   false,
       stencilBuffer: false,
+      samples:       4,
     });
 
     // ── 1×1 transparent fallback until GLB loads ──────────────────────────────

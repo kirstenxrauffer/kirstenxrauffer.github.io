@@ -1,15 +1,18 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { FairyCanvas } from './features/fairies';
 import { WatercolorCanvas } from './features/watercolor';
 import { HERO_IMAGES } from './features/watercolor/constants';
 import NavMenu from './components/NavMenu';
-import WorkCarousel from './features/work/WorkCarousel';
 import { WORK_MANIFEST } from './features/work/workManifest';
 import Home from './pages/Home';
-import About from './pages/About';
-import Contact from './pages/Contact';
 import './App.css';
+
+// Home stays eager (LCP route). Secondary routes + the work gallery are
+// code-split so the initial bundle only carries what the landing needs.
+const About        = lazy(() => import('./pages/About'));
+const Contact      = lazy(() => import('./pages/Contact'));
+const WorkCarousel = lazy(() => import('./features/work/WorkCarousel'));
 
 function shuffle<T>(arr: T[]): T[] {
   const out = [...arr];
@@ -129,11 +132,13 @@ function App() {
       <FairyCanvas onFairyClick={handleFairyClick} navOpen={navOpen} />
       <main className={mainClass}>
         <div className="app__routes">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Contact />} />
-          </Routes>
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+            </Routes>
+          </Suspense>
           <NavMenu
             open={navOpen}
             ready={revealComplete}
@@ -146,14 +151,16 @@ function App() {
 
       {/* Two separate keyed instances so exit plays on the outgoing instance
           while the new one mounts fresh and runs its enter animation. */}
-      {exitingCompany && (() => {
-        const co = WORK_MANIFEST.find(c => c.slug === exitingCompany || c.label === exitingCompany);
-        return co ? <WorkCarousel key={'exit-' + exitingCompany} company={co} onClose={handleClose} exiting /> : null;
-      })()}
-      {activeCompany && (() => {
-        const co = WORK_MANIFEST.find(c => c.slug === activeCompany || c.label === activeCompany);
-        return co ? <WorkCarousel key={activeCompany} company={co} onClose={handleClose} /> : null;
-      })()}
+      <Suspense fallback={null}>
+        {exitingCompany && (() => {
+          const co = WORK_MANIFEST.find(c => c.slug === exitingCompany || c.label === exitingCompany);
+          return co ? <WorkCarousel key={'exit-' + exitingCompany} company={co} onClose={handleClose} exiting /> : null;
+        })()}
+        {activeCompany && (() => {
+          const co = WORK_MANIFEST.find(c => c.slug === activeCompany || c.label === activeCompany);
+          return co ? <WorkCarousel key={activeCompany} company={co} onClose={handleClose} /> : null;
+        })()}
+      </Suspense>
     </div>
   );
 }

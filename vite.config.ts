@@ -15,6 +15,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ['three'],
+          gsap:  ['gsap'],
+          p5:    ['p5', 'p5.brush'],
+        },
+      },
+    },
   },
 });

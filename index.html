@@ -25,6 +25,9 @@
     <!-- JSON-LD Person schema is injected per-page via react-helmet-async
          (see src/pages/Home.tsx for the rich version with worksFor/subjectOf). -->
 
+    <!-- Preload paper texture used by the watercolor shader on first paint -->
+    <link rel="preload" as="image" href="/textures/paper.jpg" fetchpriority="high" />
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
     <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=gambetta@400,500,700&f[]=general-sans@400,500,700&display=swap" />
