@@ -15,20 +15,42 @@ export type FSMState =
   | { kind: 'orbit'; orbitAngle: number; orbitPhase: number; orbitDir: 1 | -1 }
   | { kind: 'flee'; targetPos: Vec2 }
   | {
+      // Orbit the whole nav-container bounding circle ONCE at half speed.
+      // Phase 'travel' lerps centre from travelFrom → container centre while
+      // orbitAngle advances, producing one continuous swirl into the ring.
       kind: 'navOrbit';
-      links: Vec2[];
-      current: number;
+      center: Vec2;
+      radius: number;
       phase: 'travel' | 'orbit';
       orbitAngle: number;
       orbitTurn: number;
       orbitDir: 1 | -1;
-      // Travel phase: orbit centre lerps from travelFrom → links[current] over
-      // travelDuration, while orbitAngle keeps advancing — produces one
-      // continuous swirling path between buttons rather than a diagonal cut.
       travelFrom: Vec2;
       travelT: number;
       travelDuration: number;
+    }
+  | {
+      // After the container orbit: fly toward the live cursor. On arrival
+      // within GAME_APPROACH_ARRIVE, fires navArea.gamePromptOpen.
+      kind: 'gameApproach';
+    }
+  | {
+      // Idling close to the cursor while the game-prompt tooltip is shown.
+      kind: 'gameIdle';
+    }
+  | {
+      // Shake side-to-side angrily with a red glow.
+      kind: 'angry';
+      startedAt: number;
+      anchor: Vec2;
+    }
+  | {
+      // Victory lap: loop the viewport perimeter with a yellow glow and pollen.
+      kind: 'celebrate';
+      angle: number;
     };
+
+export type Mood = 'normal' | 'angry' | 'celebrate';
 
 export type FlipStyle = 'pitch' | 'yaw';
 
@@ -54,6 +76,10 @@ export type Fairy = {
 
   // Behavior.
   fsm: FSMState;
+
+  // Mood — drives glow hue and special motion (shake/celebrate). Mutated in
+  // place from outside the FSM (e.g. game end).
+  mood: Mood;
 
   // Per-fairy deterministic seed for brush.seed() — pins stamp randomness so
   // the body doesn't shimmer when redrawn each frame.

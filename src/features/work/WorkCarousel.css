@@ -269,12 +269,14 @@
   border-radius: 0;
 }
 
-/* Top carousel: grow + glow on hover — preview overlays it */
+/* Top carousel: gentle expand on hover — makes the cell feel selectable without
+   the detail row's dramatic lift/glow. The dim/bright contrast (see title rules
+   below) carries the active-state affordance; scale just adds tactile feedback. */
 .wc-row--top .wc-thumb--clickable:hover {
   border-color: transparent;
   border-radius: 4px;
   box-shadow: none;
-  transform: none;
+  transform: scale(1.05);
   z-index: 10;
 }
 
@@ -592,6 +594,20 @@
   transition: background 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Title thumbs dim by default; the active (2nd carousel open) one — or any
+   cell being hovered — goes to full brightness. Gives the row a clear
+   focus-point once a project is picked without turning the others invisible. */
+.wc-thumb--title {
+  opacity: 0.5;
+  transition: opacity 0.22s ease, transform 0.22s, box-shadow 0.22s;
+}
+
+.wc-thumb--title.wc-thumb--active,
+.wc-thumb--title.wc-thumb--first-lit,
+.wc-thumb--title.wc-thumb--clickable:hover {
+  opacity: 1;
+}
+
 .wc-thumb__title-text {
   position: relative;
   z-index: 2;
@@ -630,12 +646,19 @@
     0 0 20px color-mix(in srgb, var(--brand-color, #f0b030) 55%, transparent);
 }
 
-/* Brush-frame layer — sits below the vignette + title text */
+/* Brush-frame layer — sits below the vignette + title text.
+   Flex-center so the SVG (rendered at its desktop 320×190 design size) stays
+   visually centered in smaller mobile cells (240×160); the overflow is clipped
+   by .wc-thumb__media's overflow:hidden, matching how the title text — which
+   is also centered by its own flex parent — sits in the card. */
 .wc-thumb__title-doodles {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Paper vignette — very faint soft edge so the card reads as paper rather

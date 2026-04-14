@@ -309,11 +309,14 @@ const TITLE_FONTS = [
 interface TitleThumbProps {
   index: number;
   label: string;
+  active?: boolean;
+  /** Show resting brightness even when no cell is hovered/selected — used for the first cell */
+  firstLit?: boolean;
   onClick?: () => void;
   brandColor?: string;
 }
 
-function TitleThumb({ index, label, onClick, brandColor }: TitleThumbProps) {
+function TitleThumb({ index, label, active, firstLit, onClick, brandColor }: TitleThumbProps) {
   // Word count drives a font-size step-down so longer titles still fit the cell.
   const wordCount = label.trim().split(/\s+/).length;
   const sizeClass =
@@ -333,13 +336,21 @@ function TitleThumb({ index, label, onClick, brandColor }: TitleThumbProps) {
 
   return (
     <button
-      className={['wc-thumb', 'wc-thumb--clickable', 'wc-thumb--title', sizeClass].join(' ')}
+      className={[
+        'wc-thumb',
+        'wc-thumb--clickable',
+        'wc-thumb--title',
+        sizeClass,
+        active ? 'wc-thumb--active' : '',
+        firstLit ? 'wc-thumb--first-lit' : '',
+      ].filter(Boolean).join(' ')}
       style={{
         '--i': index,
         '--title-font': titleFont,
         ...(brandColor ? { '--brand-color': brandColor } : {}),
       } as React.CSSProperties}
       onClick={onClick}
+      aria-pressed={active}
     >
       <div className="wc-thumb__media wc-thumb__media--title">
         <div className="wc-thumb__title-doodles" aria-hidden="true">
@@ -404,6 +415,11 @@ export default function WorkCarousel({ company, onClose, exiting }: {
   // Track whether any detail-row cell is hovered, so the first cell stays
   // lit (wc-thumb--first-lit) when nothing else is being hovered.
   const [anyDetailHovered, setAnyDetailHovered] = useState(false);
+
+  // Project index whose cell is currently in the leftmost "first position" of
+  // the top track. Updated on scroll so the lit (un-dimmed) title tracks the
+  // cell the user has scrolled/dragged into that slot.
+  const [topFirstIdx, setTopFirstIdx] = useState(0);
 
   // ── Click-triggered image preview ─────────────────────────────────────────
   // Cache of natural pixel dimensions per asset URL — populated as detail-row
@@ -507,6 +523,37 @@ export default function WorkCarousel({ company, onClose, exiting }: {
   }, [hidePreview]);
 
   const availableProjects = company.projects.filter(p => p.assets.length > 0 || !!p.description);
+
+  // Watch the top track's scroll position and compute which interactive cell
+  // currently sits in the leftmost "first" slot (directly after the leading
+  // decorative fillers). Rounded so a cell "wins" once it's scrolled past the
+  // halfway point, matching the user's visual sense of which cell is foremost.
+  useEffect(() => {
+    const track = topTrackRef.current;
+    if (!track) return;
+    const n = availableProjects.length;
+    if (n === 0) return;
+
+    let raf: number | null = null;
+    const update = () => {
+      raf = null;
+      const isMobile = window.matchMedia('(max-width: 640px)').matches;
+      const step = (isMobile ? 240 : 320) + 6;
+      const offset = track.scrollLeft - FILLERS_START * step;
+      const idx = Math.max(0, Math.min(n - 1, Math.round(offset / step)));
+      setTopFirstIdx(idx);
+    };
+    const onScroll = () => {
+      if (raf !== null) return;
+      raf = requestAnimationFrame(update);
+    };
+    track.addEventListener('scroll', onScroll, { passive: true });
+    update();
+    return () => {
+      track.removeEventListener('scroll', onScroll);
+      if (raf !== null) cancelAnimationFrame(raf);
+    };
+  }, [availableProjects.length, company.slug]);
 
   // ── Sticky notes: random palettes, rotations, ASCII doodles — re-rolled per project ──
   const [notePalettes, noteRotations, noteDoodles] = useMemo<
@@ -612,6 +659,8 @@ export default function WorkCarousel({ company, onClose, exiting }: {
                   key={project.slug}
                   index={FILLERS_START + i}
                   label={project.label}
+                  active={selectedProject?.slug === project.slug}
+                  firstLit={i === topFirstIdx}
                   onClick={() => handleProjectClick(project)}
                   brandColor={company.color}
                 />

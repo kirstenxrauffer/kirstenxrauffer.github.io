@@ -28,6 +28,7 @@ export function createFairy(args: CreateFairyArgs): Fairy {
     eyeA: { ...EYE_A.defaultOffset },
     eyeB: { ...EYE_B.defaultOffset },
     fsm: { kind: 'wander', nextHeadingAt: 0 },
+    mood: 'normal',
     rngSeed: args.rngSeed ?? Math.floor(Math.random() * 1e9),
     flipStyle: args.flipStyle ?? 'pitch',
   };

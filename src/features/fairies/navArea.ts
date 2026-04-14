@@ -1,6 +1,6 @@
 /**
- * Shared singleton: React (FairyCanvas) writes; the p5 FSM reads.
- * Keeps the sketch decoupled from React without prop-drilling into the sketch.
+ * Shared singleton: React (FairyCanvas/App) writes; the p5 FSM reads (and
+ * occasionally writes flags back). Keeps the sketch decoupled from React.
  */
 export const navArea = {
   /** True while the nav menu is open. */
@@ -14,8 +14,29 @@ export const navArea = {
    */
   zoomRequested: false,
   /**
-   * Screen-space centres of the top-level nav buttons, captured by FairyCanvas
-   * at the moment the nav opens. The FSM orbits each in turn.
+   * Screen-space bounding circle of the nav-menu container (centre + radius),
+   * captured by FairyCanvas at the moment the nav opens. The FSM orbits this
+   * ONCE then exits to gameApproach.
    */
-  navLinks: [] as { x: number; y: number }[],
+  navContainer: null as { cx: number; cy: number; radius: number } | null,
+
+  /**
+   * FSM → React signal: set to true when navi completes her container orbit
+   * and has arrived near the cursor. React reads this to show the game prompt
+   * tooltip, then clears it.
+   */
+  gamePromptOpen: false,
+
+  /**
+   * React → FSM signal: set when the user starts or ends a game. The FSM
+   * consumes these to transition mood/state.
+   */
+  gameStartRequested: false,
+  gameResult: null as null | 'win' | 'lose',
+
+  /**
+   * React → FSM signal: user dismissed the game prompt without playing
+   * (e.g. clicked elsewhere). Clears mood back to normal.
+   */
+  dismissRequested: false,
 };

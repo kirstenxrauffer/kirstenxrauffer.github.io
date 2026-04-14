@@ -118,13 +118,22 @@ export const FLEE_ARRIVAL_DIST = 50;   // px — close enough to the flee target
 export const NAV_AVOID_RADIUS  = 180;  // px — bubble around nav click pos navi stays outside
 
 // NavOrbit constants — entered when the user opens the nav by clicking navi.
-// Navi cycles through the captured nav-link positions, orbiting each in turn,
-// and exits when the menu closes.
-export const NAV_TRAVEL_SPEED      = 280; // px/s — brisk approach to the next link
-export const NAV_TRAVEL_ARRIVAL    = 6;   // px past the orbit ring before engaging orbit
-export const NAV_ORBIT_RADIUS      = 70;  // px — distance from link centre while orbiting
-export const NAV_ORBIT_ANG_SPEED   = 2.6; // rad/s — quick, halo-like circling
-export const NAV_ORBIT_REVOLUTIONS = 1;   // full turns to complete before advancing
+// Navi orbits the whole nav container ONCE at half speed, then transitions to
+// flying to the cursor to offer a game.
+export const NAV_TRAVEL_SPEED      = 280;  // px/s — brisk approach to the container
+export const NAV_ORBIT_RADIUS_PAD  = 55;   // px — gap between container bounds and orbit ring
+export const NAV_ORBIT_ANG_SPEED   = 1.3;  // rad/s — half of the previous 2.6 rad/s
+export const NAV_ORBIT_REVOLUTIONS = 1;    // full turns around the container before exit
+
+// Game-prompt flight constants — after the container orbit Navi flies to the cursor.
+export const GAME_APPROACH_SPEED   = 260;  // px/s — quick but readable
+export const GAME_APPROACH_ARRIVE  = 60;   // px from cursor at which the prompt opens
+
+// Win/lose mood constants.
+export const ANGRY_SHAKE_HZ        = 14;   // cycles/s of side-to-side shake
+export const ANGRY_SHAKE_AMP       = 12;   // px — peak horizontal displacement
+export const CELEBRATE_LAP_SPEED   = 320;  // px/s — victory-lap travel speed
+export const CELEBRATE_LAP_INSET   = 120;  // px inset from viewport edge for the lap path
 
 // Center-text avoidance — keeps the fairy out of the viewport's central content zone.
 // Fractions of viewport width/height define the ellipse semi-axes.

@@ -58,7 +58,6 @@ export function StickyNote({ title, palette, rotation, children }: StickyNotePro
   }, [grown]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    setIsDragging(true);
     draggedRef.current = false;
     downPos.current = { x: e.clientX, y: e.clientY };
     lastPos.current = { x: e.clientX, y: e.clientY };
@@ -68,16 +67,22 @@ export function StickyNote({ title, palette, rotation, children }: StickyNotePro
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const dx = e.clientX - lastPos.current.x;
-    const dy = e.clientY - lastPos.current.y;
-    lastPos.current = { x: e.clientX, y: e.clientY };
+    // Hold off on visual drag state (and position updates) until movement
+    // crosses the threshold. That way a press or tap — or the start of a
+    // click — doesn't shrink a hover-expanded note before the user has
+    // actually committed to dragging.
     if (!draggedRef.current) {
       const tdx = e.clientX - downPos.current.x;
       const tdy = e.clientY - downPos.current.y;
-      if (tdx * tdx + tdy * tdy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
-        draggedRef.current = true;
-      }
+      if (tdx * tdx + tdy * tdy <= DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return;
+      draggedRef.current = true;
+      setIsDragging(true);
+      lastPos.current = { x: e.clientX, y: e.clientY };
+      return;
     }
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+    lastPos.current = { x: e.clientX, y: e.clientY };
     setPos(prev => ({ x: prev.x + dx, y: prev.y + dy }));
   }, []);
 
