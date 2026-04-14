@@ -3,6 +3,7 @@ import type { CompanyWork, ProjectAssets } from './workManifest';
 import './WorkCarousel.css';
 import { StickyNote } from '../../components/StickyNote';
 import { StickyDoodles } from '../../components/StickyDoodles';
+import { TitleFrames } from '../../components/TitleFrames';
 import { ASCII_DOODLES } from '../../constants/asciidoodles';
 import { STICKY_NOTE_PALETTES } from '../../constants/stickyNoteColors';
 import type { StickyNotePalette } from '../../constants/stickyNoteColors';
@@ -243,15 +244,10 @@ function AssetThumb({
 // Top-row cell that shows the project name as a Pixar-style title card.
 // Each project gets a deterministic font from the pool based on a label hash.
 
-// Divider colors from the sticky-note palettes — same set used by the doodle
-// sticky note so the title-card doodles read as the same visual language.
-const TITLE_DOODLE_COLORS = STICKY_NOTE_PALETTES.map(p => p.divider);
-
 const TITLE_FONTS = [
   "'Bitcount Grid Double', monospace",              // pixel/grid display
   "'Bebas Neue', 'Arial Narrow', sans-serif",       // clean modern all-caps
   "'Erica One', sans-serif",                        // bold impact display
-  "'Shrikhand', serif",                             // bold decorative
   "'Fredoka', 'Arial Rounded MT Bold', sans-serif", // rounded friendly
 ];
 
@@ -273,15 +269,10 @@ function TitleThumb({ index, label, onClick, brandColor }: TitleThumbProps) {
 
   // Deterministic font per project — summed char codes mod pool length so
   // each label always maps to the same font regardless of render order.
-  const fontIdx = Array.from(label).reduce((acc, c) => acc + c.charCodeAt(0), 0) % TITLE_FONTS.length;
-  const titleFont = TITLE_FONTS[fontIdx];
-
-  // Random doodle color + count — stable for the component's lifetime.
-  const { doodleColor, doodleCount } = useMemo(() => ({
-    doodleColor: TITLE_DOODLE_COLORS[Math.floor(Math.random() * TITLE_DOODLE_COLORS.length)],
-    doodleCount: 3 + Math.floor(Math.random() * 3), // 3, 4, or 5
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), []);
+  // labelHash is also reused by TitleFrames to pick a frame style + seed its jitter,
+  // so every render of the same project yields the same font AND the same frame.
+  const labelHash = Array.from(label).reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const titleFont = TITLE_FONTS[labelHash % TITLE_FONTS.length];
 
   return (
     <button
@@ -295,7 +286,14 @@ function TitleThumb({ index, label, onClick, brandColor }: TitleThumbProps) {
     >
       <div className="wc-thumb__media wc-thumb__media--title">
         <div className="wc-thumb__title-doodles" aria-hidden="true">
-          <StickyDoodles fieldWidth={320} fieldHeight={190} color={doodleColor} count={doodleCount} sizeRange={[30, 90]} strokeWidth={1.8} />
+          <TitleFrames
+            fieldWidth={320}
+            fieldHeight={190}
+            color={brandColor ?? '#f0b030'}
+            wordCount={wordCount}
+            labelHash={labelHash}
+            strokeWidth={1.8}
+          />
         </div>
         <span className="wc-thumb__title-text">{label}</span>
       </div>
