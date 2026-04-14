@@ -91,7 +91,12 @@ export default function FairyCanvas({ onFairyClick, navOpen, onGameStart, gameAc
     }
     let raf = 0;
     const tick = () => {
-      const el = document.querySelector<HTMLElement>('[data-navi-anchor="you"]');
+      // Games tag one element — typically navi's own side-of-board label —
+      // with `data-navi-anchor`; the attribute's value is a semantic hint
+      // ("navi", "you", etc.) and not used for matching. Any game that wants
+      // navi to hover somewhere else just puts the attribute wherever it
+      // prefers.
+      const el = document.querySelector<HTMLElement>('[data-navi-anchor]');
       if (el) {
         const r = el.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) {

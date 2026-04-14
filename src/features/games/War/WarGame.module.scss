@@ -66,6 +66,13 @@
     position: relative;
   }
 
+  &__label-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
   &__label {
     font-size: 0.95rem;
     letter-spacing: 0.1em;
@@ -172,7 +179,6 @@
     align-items: center;
     justify-content: center;
     gap: 1rem;
-    min-height: 180px;
   }
 
   &__message {
@@ -201,6 +207,9 @@
     gap: 0.75rem;
   }
 
+  // Mobile-only copy of the shuffle button, rendered beneath the message
+  // inside the middle column. Hidden on desktop where the footer version is
+  // used instead.
   &__action {
     appearance: none;
     background: rgba(255, 255, 255, 0.1);
@@ -218,6 +227,16 @@
       transform: translateY(-1px);
     }
     &:disabled { opacity: 0.5; cursor: default; }
+
+    &--war {
+      background: rgba(210, 170, 240, 0.18);
+      border-color: rgba(210, 170, 240, 0.5);
+      letter-spacing: 0.14em;
+      font-weight: 600;
+      &:hover:not(:disabled) {
+        background: rgba(210, 170, 240, 0.32);
+      }
+    }
   }
 
   // Traveler — face-up or face-down card flying from its source slot to the
@@ -391,4 +410,19 @@
     grid-template-columns: 1fr;
   }
   .war__side { min-height: auto; }
+  .war__footer { flex-direction: column; align-items: center; }
+
+  // During war the pile and message share a row: [war pile] | [message].
+  // The warpile sits in DOM order after the message, so give it order: -1 to
+  // pull it left. :has() is safe — all evergreen browsers since 2022/2023.
+  .war__middle:has(.war__warpile) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+  }
+  .war__middle:has(.war__warpile) .war__warpile {
+    order: -1;
+    flex-shrink: 0;
+  }
 }

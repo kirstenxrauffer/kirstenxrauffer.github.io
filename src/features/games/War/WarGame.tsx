@@ -5,6 +5,19 @@ import { playRound, isGameOver, winner } from './warLogic';
 import { CardFace, CardBack } from './CardView';
 import { newCardBackSession } from '../watercolorEngine';
 import styles from './WarGame.module.scss';
+import { navArea } from '../../fairies/navArea';
+import { ANGRY_DURATION_MS } from '../../fairies/fairy/constants';
+
+// Flash navi's mood (celebrate on win, angry on loss) for the same short
+// window the end-of-game angry state uses, then restore. The angry FSM
+// tick already self-clears on timeout, but celebrate relies on mood going
+// back to 'normal', so we always schedule a restore here.
+function flashNaviMood(result: 'win' | 'lose'): void {
+  navArea.currentMood = result === 'win' ? 'celebrate' : 'angry';
+  window.setTimeout(() => {
+    if (navArea.currentMood !== 'normal') navArea.currentMood = 'normal';
+  }, ANGRY_DURATION_MS);
+}
 
 // UI state machine:
 //   'idle'     — waiting for the user to click their deck to play
@@ -18,8 +31,6 @@ type Phase = 'idle' | 'reveal' | 'war' | 'travel' | 'gameover';
 const REVEAL_HOLD_MS = 900;
 // Duration of the travel animation itself (matches CSS transition length).
 const TRAVEL_MS = 650;
-// War phase: how long the burned face-down pile sits before the final flip.
-const WAR_BURN_MS = 700;
 
 // A card in flight between a source position and the winner's deck.
 type Traveler = {
@@ -33,6 +44,17 @@ type Traveler = {
   rotDst: number;         // final rotation (deg)
   delay: number;          // per-card stagger (ms)
   moving: boolean;        // flipped to true after one rAF to trigger transition
+};
+
+// Resolved war data stored in a ref so handleWarReveal can read it without
+// a stale closure. Populated when phase transitions to 'war'; cleared on reveal.
+type PendingWar = {
+  winner: 'player' | 'navi';
+  playerCard: Card;
+  naviCard: Card;
+  finalize: () => void;
+  nextPlayer: Card[];
+  nextNavi: Card[];
 };
 
 export default function WarGame({ onEnd, onClose }: GameProps) {
@@ -50,6 +72,7 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
   const [message, setMessage] = useState<string>('');
   const [showStartHint, setShowStartHint] = useState(true);
   const [shuffleTick, setShuffleTick] = useState(0);
+  const pendingWarRef = useRef<PendingWar | null>(null);
   // Gate for the shuffle keyframe — only true during an intentional shuffle
   // (initial mount + shuffle button). Cards appended to a pile between rounds
   // mount with this false, so they settle in silently.
@@ -205,24 +228,39 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
       setPhase('war');
       setMessage('this means WAR!');
       setWarPile(top.burned);
-      window.setTimeout(() => {
-        const finalWinner = flattenWinner(top);
-        const fp = topPlayerCard(top);
-        const fn = topNaviCard(top);
-        setShownPlayer(fp);
-        setShownNavi(fn);
-        setPhase('reveal');
-        setMessage(
-          finalWinner === 'player'
-            ? 'you take the whole pile!'
-            : 'navi snags the whole pile!',
-        );
-        window.setTimeout(() => {
-          startTravel(finalWinner, fp, fn, finalize);
-        }, REVEAL_HOLD_MS);
-      }, WAR_BURN_MS * 2);
+      // Store resolution in a ref — handleWarReveal picks it up when the user
+      // clicks the WAR button, avoiding any auto-advance and stale closures.
+      pendingWarRef.current = {
+        winner: flattenWinner(top),
+        playerCard: topPlayerCard(top),
+        naviCard: topNaviCard(top),
+        finalize,
+        nextPlayer: result.nextPlayer,
+        nextNavi: result.nextNavi,
+      };
     }
   }, [phase, player, navi, onEnd, showStartHint, startTravel]);
+
+  const handleWarReveal = useCallback(() => {
+    const pw = pendingWarRef.current;
+    if (!pw) return;
+    pendingWarRef.current = null;
+    setShownPlayer(pw.playerCard);
+    setShownNavi(pw.naviCard);
+    setPhase('reveal');
+    setMessage(
+      pw.winner === 'player'
+        ? 'you take the whole pile!'
+        : 'navi snags the whole pile!',
+    );
+    // Face-off reaction — skip if this war ends the game.
+    if (!isGameOver(pw.nextPlayer, pw.nextNavi)) {
+      flashNaviMood(pw.winner === 'navi' ? 'win' : 'lose');
+    }
+    window.setTimeout(() => {
+      startTravel(pw.winner, pw.playerCard, pw.naviCard, pw.finalize);
+    }, REVEAL_HOLD_MS);
+  }, [startTravel]);
 
   // Full shuffle-keyframe duration (ms) — slightly longer than the CSS
   // animation so the gate stays open until the last card settles.
@@ -266,8 +304,10 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
 
       <div className={styles['war__board']}>
         <div className={styles['war__side']}>
-          <div className={styles['war__label']}>navi</div>
-          <div className={styles['war__count']}>{navi.length}</div>
+          <div className={styles['war__label-row']}>
+            <div className={styles['war__label']} data-navi-anchor="navi">navi</div>
+            <div className={styles['war__count']}>{navi.length}</div>
+          </div>
           <div className={styles['war__deck-wrap']}>
             <div className={styles['war__deck']} ref={naviDeckRef}>
               <CardStack count={navi.length} shuffleKey={shuffleTick} shuffling={isShuffling} />
@@ -302,8 +342,10 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
               <div className={styles['war__hint-arrow']} />
             </div>
           )}
-          <div className={styles['war__label']} data-navi-anchor="you">you</div>
-          <div className={styles['war__count']}>{player.length}</div>
+          <div className={styles['war__label-row']}>
+            <div className={styles['war__label']}>you</div>
+            <div className={styles['war__count']}>{player.length}</div>
+          </div>
           <div className={styles['war__deck-wrap']}>
             <button
               type="button"
@@ -331,6 +373,15 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
         >
           shuffle
         </button>
+        {phase === 'war' && (
+          <button
+            type="button"
+            className={`${styles['war__action']} ${styles['war__action--war']}`}
+            onClick={handleWarReveal}
+          >
+            WAR
+          </button>
+        )}
       </div>
 
       {/* Traveler layer — cards in flight to the winner's deck. Fixed so they

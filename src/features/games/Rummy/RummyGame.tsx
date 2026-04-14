@@ -200,7 +200,7 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
 
       {/* Navi's hand — face-down with the newly-drawn/discarded card flashed. */}
       <div className={styles['rummy__navi']}>
-        <div className={styles['rummy__side-label']}>
+        <div className={styles['rummy__side-label']} data-navi-anchor="navi">
           navi · {state.navi.length} card{state.navi.length === 1 ? '' : 's'}
         </div>
         <div className={styles['rummy__navi-hand']}>
@@ -254,7 +254,7 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
 
       {/* Player's hand — sorted, with meld highlights. */}
       <div className={styles['rummy__player']}>
-        <div className={styles['rummy__side-label']} data-navi-anchor="you">you</div>
+        <div className={styles['rummy__side-label']}>you</div>
         <div className={styles['rummy__player-hand']}>
           {sortedMain.map((c) => (
             <button

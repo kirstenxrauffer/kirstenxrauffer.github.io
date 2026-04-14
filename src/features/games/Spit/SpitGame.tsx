@@ -570,7 +570,7 @@ function SideRow({
     <div className={styles[`spit__row`]} data-owner={owner}>
       <div
         className={styles['spit__label']}
-        {...(owner === 'player' ? { 'data-navi-anchor': 'you' } : {})}
+        {...(owner === 'navi' ? { 'data-navi-anchor': 'navi' } : {})}
       >
         {owner === 'player' ? 'you' : 'navi'}
       </div>
