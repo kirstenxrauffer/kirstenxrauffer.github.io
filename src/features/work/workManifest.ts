@@ -86,9 +86,9 @@ export const WORK_MANIFEST: CompanyWork[] = [
         assets: [
           '/work/discord/super-reactions/official-demo.gif',
           '/work/discord/super-reactions/reactions-burst.gif',
-          '/work/discord/super-reactions/blog-header.png',
-          '/work/discord/super-reactions/ui-toggle.png',
-          '/work/discord/super-reactions/updated-view-reactions-window.png',
+          '/work/discord/super-reactions/blog-header.webp',
+          '/work/discord/super-reactions/ui-toggle.webp',
+          '/work/discord/super-reactions/updated-view-reactions-window.webp',
         ],
       },
       {
@@ -98,7 +98,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         skills: ['React', 'TypeScript', 'Lottie', 'Real-time', 'Mobile'],
         assets: [
           '/work/discord/voice-channel-reactions/voice-channel-reactions.gif',
-          '/work/discord/voice-channel-reactions/hero.png',
+          '/work/discord/voice-channel-reactions/hero.webp',
         ],
       },
       {
@@ -109,7 +109,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         assets: [
           '/work/discord/entrance-sounds/entrance-sounds-tiktok.gif',
           '/work/discord/entrance-sounds/custom-sounds-anywhere.gif',
-          '/work/discord/entrance-sounds/custom-sounds-anywhere-promo.png',
+          '/work/discord/entrance-sounds/custom-sounds-anywhere-promo.webp',
         ],
       },
       {
@@ -120,10 +120,10 @@ export const WORK_MANIFEST: CompanyWork[] = [
         leadership: ['Cross-functional advocacy'],
         assets: [
           '/work/discord/custom-app-icons/icon-options-preview.jpg',
-          '/work/discord/custom-app-icons/new-icon-packs-preview.png',
-          '/work/discord/custom-app-icons/custom_app_icon_home_screen.png',
-          '/work/discord/custom-app-icons/custom_app_icon_selection.png',
-          '/work/discord/custom-app-icons/custom_app_icon_settings.png',
+          '/work/discord/custom-app-icons/new-icon-packs-preview.webp',
+          '/work/discord/custom-app-icons/custom_app_icon_home_screen.webp',
+          '/work/discord/custom-app-icons/custom_app_icon_selection.webp',
+          '/work/discord/custom-app-icons/custom_app_icon_settings.webp',
         ],
       },
       {
@@ -133,13 +133,13 @@ export const WORK_MANIFEST: CompanyWork[] = [
         skills: ['React', 'Electron', 'TypeScript', 'UX Design'],
         leadership: ['Pitched to Head of Product', 'End-to-end ownership'],
         assets: [
-          '/work/discord/custom-desktop-icons/blurple-twilight-desktop.png',
+          '/work/discord/custom-desktop-icons/blurple-twilight-desktop.webp',
           '/work/discord/custom-desktop-icons/icon-options-preview.jpg',
-          '/work/discord/custom-desktop-icons/new-icon-packs-preview.png',
+          '/work/discord/custom-desktop-icons/new-icon-packs-preview.webp',
           '/work/discord/custom-desktop-icons/ezgif-2-3bf8156bec.gif',
-          '/work/discord/custom-desktop-icons/867577c9-651c-4de0-b7b5-202456f5f4db.png',
-          '/work/discord/custom-desktop-icons/a47c3ad0-848b-4d68-b2a0-d21fa66ee248.png',
-          '/work/discord/custom-desktop-icons/e8df9be9-6fd6-4c02-ab7b-ef0b5cf92f9a.png',
+          '/work/discord/custom-desktop-icons/867577c9-651c-4de0-b7b5-202456f5f4db.webp',
+          '/work/discord/custom-desktop-icons/a47c3ad0-848b-4d68-b2a0-d21fa66ee248.webp',
+          '/work/discord/custom-desktop-icons/e8df9be9-6fd6-4c02-ab7b-ef0b5cf92f9a.webp',
         ],
       },
       {
@@ -148,8 +148,8 @@ export const WORK_MANIFEST: CompanyWork[] = [
         description: 'My first project at Discord. Nitro subscribers were capped at 100MB uploads, so I migrated file storage from Discord\'s own infrastructure to Google Cloud Storage to push that to 500MB. Free users stay at 10MB; Nitro subscribers now get 50x that, enabling large video recordings, high-res assets, and game captures shared directly in chat.',
         skills: ['Node.js', 'GCS', 'Back-end', 'Infrastructure'],
         assets: [
-          '/work/discord/500mb-uploads/new.png',
-          '/work/discord/500mb-uploads/old-womp.png',
+          '/work/discord/500mb-uploads/new.webp',
+          '/work/discord/500mb-uploads/old-womp.webp',
         ],
       },
     ],
@@ -210,10 +210,10 @@ export const WORK_MANIFEST: CompanyWork[] = [
         skills: ['Ember', 'Accessibility', 'JavaScript', 'Performance'],
         leadership: ['Engineering Award nominee', 'Co-authored eng blog post', 'Cross-org a11y lead'],
         assets: [
-          '/work/linkedin/document-viewer/1700688379926.png',
-          '/work/linkedin/document-viewer/1700688379965.png',
-          '/work/linkedin/document-viewer/1700688380360.png',
-          '/work/linkedin/document-viewer/1700688381379.png',
+          '/work/linkedin/document-viewer/1700688379926.webp',
+          '/work/linkedin/document-viewer/1700688379965.webp',
+          '/work/linkedin/document-viewer/1700688380360.webp',
+          '/work/linkedin/document-viewer/1700688381379.webp',
         ],
       },
       {
@@ -252,7 +252,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         skills: ['Dynamics 365', 'C++', 'AngularJS', 'X++', 'SQL', 'ERP'],
         leadership: ['Internal engineering trainer'],
         assets: [
-          '/work/microsoft/dynamics365/dynamics365-screenshot.png',
+          '/work/microsoft/dynamics365/dynamics365-screenshot.webp',
         ],
       },
     ],
@@ -268,11 +268,11 @@ export const WORK_MANIFEST: CompanyWork[] = [
         description: 'iOS diabetes management app built for Roche, now operated by Linova. Logs blood glucose, insulin, and nutrition, with Bluetooth sync to Accu-Chek meters, Apple Watch support, and a rule-based coaching engine. Started as a proof-of-concept through TU Munich (Praktikum) and still ships today in its original form, including the original charts and icons. Designed the entire UI and all iconography, built the interface from scratch in Swift, and assisted with the Bluetooth LE integration for syncing patient data from Accu-Chek glucose monitors.',
         skills: ['Swift', 'iOS', 'BLE', 'HealthKit', 'Apple Watch'],
         assets: [
-          '/work/roche/neptun/overview.png',
+          '/work/roche/neptun/overview.webp',
           '/work/roche/neptun/phone-mockup.webp',
           '/work/roche/neptun/coaching.webp',
           '/work/roche/neptun/diary.webp',
-          '/work/roche/neptun/app-icon.png',
+          '/work/roche/neptun/app-icon.webp',
         ],
       },
     ],
