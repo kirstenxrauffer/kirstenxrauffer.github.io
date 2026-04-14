@@ -78,9 +78,19 @@ function App() {
       outer.style.setProperty('--section-h', `${h}px`);
     };
     apply();
+    // Enable the nav transition only on the next frame, AFTER the initial
+    // --section-h value has been committed. Otherwise the very first paint
+    // transitions from 0px → measured height, which looks like the nav is
+    // sliding into place when the page loads.
+    const raf = requestAnimationFrame(() => {
+      outer.dataset.navReady = 'true';
+    });
     const ro = new ResizeObserver(apply);
     ro.observe(inner);
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   const [navOpen, setNavOpen] = useState(false);
