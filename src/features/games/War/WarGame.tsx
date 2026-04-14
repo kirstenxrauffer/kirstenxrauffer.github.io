@@ -7,11 +7,11 @@ import { newCardBackSession } from '../watercolorEngine';
 import styles from './WarGame.module.scss';
 import { navArea } from '../../fairies/navArea';
 import { ANGRY_DURATION_MS } from '../../fairies/fairy/constants';
+import { DEV_AUTOPLAY } from '../devAutoplay';
 
-// Flash navi's mood (celebrate on win, angry on loss) for the same short
-// window the end-of-game angry state uses, then restore. The angry FSM
-// tick already self-clears on timeout, but celebrate relies on mood going
-// back to 'normal', so we always schedule a restore here.
+// Flash navi's mood (celebrate on win, angry on loss) for a brief per-round
+// window, then restore. Used only for mid-game battle reactions in War —
+// game-over mood is owned by React (handleGameEnd / handleGameClose).
 function flashNaviMood(result: 'win' | 'lose'): void {
   navArea.currentMood = result === 'win' ? 'celebrate' : 'angry';
   window.setTimeout(() => {
@@ -79,6 +79,8 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
   const [isShuffling, setIsShuffling] = useState(true);
   const shuffleEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [travelers, setTravelers] = useState<Traveler[]>([]);
+  // DEV_AUTOPLAY — remove this line and the effect + button below to strip sim
+  const [autoSim, setAutoSim] = useState(false);
 
   // Fresh watercolor back for every new game session.
   useEffect(() => { newCardBackSession(); }, []);
@@ -290,6 +292,17 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
     };
   }, [triggerShuffle]);
 
+  // DEV_AUTOPLAY: fires player actions automatically so you can watch a game.
+  // Remove this effect + the autoSim state + the sim button to strip it out.
+  useEffect(() => {
+    if (!DEV_AUTOPLAY || !autoSim || phase === 'gameover') return;
+    const t = window.setTimeout(() => {
+      if (phase === 'idle') handlePlay();
+      else if (phase === 'war') handleWarReveal();
+    }, 750);
+    return () => clearTimeout(t);
+  }, [autoSim, phase, handlePlay, handleWarReveal]);
+
   return (
     <div
       className={styles['war']}
@@ -365,6 +378,15 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
       </div>
 
       <div className={styles['war__footer']}>
+        {DEV_AUTOPLAY && (
+          <button
+            type="button"
+            className={`${styles['war__action']} ${styles['war__action--sim']}`}
+            onClick={() => setAutoSim((v) => !v)}
+          >
+            {autoSim ? 'sim ■' : 'sim ▶'}
+          </button>
+        )}
         <button
           type="button"
           className={styles['war__action']}

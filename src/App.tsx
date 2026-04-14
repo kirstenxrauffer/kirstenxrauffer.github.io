@@ -206,11 +206,9 @@ function App() {
   const handleGameClose = useCallback(() => {
     setActiveGameId(null);
     setLoadedGame(null);
-    // Give navi a moment to finish the reaction animation, then reset mood.
+    // Cancel any pending delayed reset and clear mood immediately on close.
     if (moodResetTimer.current) clearTimeout(moodResetTimer.current);
-    moodResetTimer.current = setTimeout(() => {
-      navArea.currentMood = 'normal';
-    }, 5000);
+    navArea.currentMood = 'normal';
   }, []);
 
   const handleGameEnd = useCallback((result: GameResult) => {

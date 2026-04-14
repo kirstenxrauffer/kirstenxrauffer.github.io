@@ -10,7 +10,6 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
   padding: 1rem;
   background: rgba(20, 10, 40, 0.65);
   backdrop-filter: blur(10px);
@@ -48,17 +47,15 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
     width: min(820px, 96vw);
   }
 
   &__row {
     display: grid;
-    grid-template-columns: 60px 1fr 70px;
+    grid-template-columns: 60px 1fr;
     align-items: center;
     gap: 0.75rem;
     width: 100%;
-    padding: 0.65rem 0.8rem;
     border-radius: 10px;
     // Subtle zone framing so each side reads as its own "territory".
     border: 1px solid transparent;
@@ -83,12 +80,21 @@
     text-transform: lowercase;
     opacity: 0.8;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  &__label-count {
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    opacity: 0.6;
   }
 
   &__piles {
     display: flex;
     justify-content: center;
-    gap: 0.6rem;
   }
 
   // Each stockpile is an oversized slot so the messy understack can fan out
@@ -192,16 +198,6 @@
     height: 100px;
   }
 
-  &__pile-count {
-    position: absolute;
-    bottom: -1.1rem;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.7rem;
-    opacity: 0.7;
-    letter-spacing: 0.05em;
-  }
-
   // Face-down spit reserve at the end of each row.
   &__spit {
     position: relative;
@@ -220,16 +216,21 @@
     letter-spacing: 0.05em;
   }
 
+  &__center-controls {
+    display: flex;
+    justify-content: center;
+  }
+
   &__center {
     display: flex;
+    align-items: center;
     gap: 1.25rem;
-    padding: 0.5rem 0;
   }
 
   &__center-pile {
     position: relative;
-    width: 75px;
-    height: 100px;
+    width: 110px;
+    height: 130px;
     transition: filter 160ms ease, transform 120ms ease;
     background: transparent;
     border: none;
@@ -333,6 +334,20 @@
       &:hover:not(:disabled) {
         background: linear-gradient(135deg, #c598f0 0%, #9a6cdc 100%);
       }
+    }
+
+    // Spit button rendered in the footer on mobile only (hidden on desktop).
+    &--mobile-spit { display: none; }
+
+    // DEV sim toggle
+    &--sim {
+      font-family: monospace;
+      font-size: 0.75rem;
+      opacity: 0.55;
+      padding: 0.4rem 1rem;
+      text-transform: none;
+      animation: none !important;
+      &:hover { opacity: 0.9; }
     }
   }
 }
@@ -446,9 +461,80 @@
 }
 
 @media (max-width: 640px) {
+  .spit__close {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 9999;
+  }
+
+  .spit__title { display: none; }
+
   .spit__row {
     grid-template-columns: 1fr;
-    gap: 0.4rem;
+    gap: 0rem;
   }
   .spit__piles { flex-wrap: wrap; }
+
+  .spit__label {
+    flex-direction: row;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  // Tighten center gap so 4 items fit without overflow on narrow screens.
+  .spit__center { gap: 0.5rem; }
+
+  // Move spit button from center to footer on mobile.
+  .spit__center-controls { display: none; }
+  .spit__action--mobile-spit { display: inline-block; }
+
+  // Shrink cards from 75×100 → 50×75 on mobile.
+  .card {
+    width: 50px;
+    height: 75px;
+
+    &__suit { font-size: 0.7rem; }
+    &__number { font-size: 1.3rem; }
+  }
+
+  .spit__understack {
+    width: 50px;
+    height: 75px;
+    margin-top: -37.5px;  // half of 75px
+    margin-left: -25px;   // half of 50px
+  }
+
+  .spit__top {
+    width: 50px;
+    height: 75px;
+    margin-top: -37.5px;
+    margin-left: -25px;
+  }
+
+  // Pile container is card + ~35px wide / ~30px tall padding.
+  .spit__pile {
+    width: 85px;
+    height: 105px;
+  }
+
+  .spit__center-pile {
+    width: 85px;
+    height: 105px;
+  }
+
+  .spit__spit {
+    width: 50px;
+    height: 75px;
+  }
+
+  .spit__ghost {
+    width: 50px;
+    height: 75px;
+  }
+
+  .spit__empty {
+    width: 50px;
+    height: 75px;
+  }
 }

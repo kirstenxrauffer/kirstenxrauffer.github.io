@@ -17,6 +17,7 @@ import {
 import { CardFace, CardBack } from './CardView';
 import { newCardBackSession } from '../watercolorEngine';
 import styles from './RummyGame.module.scss';
+import { DEV_AUTOPLAY } from '../devAutoplay';
 
 // Navi's think-time between actions so her moves feel deliberate.
 const NAVI_DRAW_DELAY = 900;
@@ -31,6 +32,8 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
   );
   // naviFlash: the id navi just picked up / discarded, for a brief highlight.
   const [naviFlashId, setNaviFlashId] = useState<number | null>(null);
+  // DEV_AUTOPLAY — remove this line and the effect + button below to strip sim
+  const [autoSim, setAutoSim] = useState(false);
 
   const stateRef = useRef<RummyState>(initial);
   useEffect(() => { stateRef.current = state; }, [state]);
@@ -130,6 +133,38 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
     }, state.phase === 'draw' ? NAVI_DRAW_DELAY : NAVI_DISCARD_DELAY);
     return () => clearTimeout(timer);
   }, [state.turn, state.phase]);
+
+  // DEV_AUTOPLAY: simulates player turns using the same logic as navi.
+  // Remove this effect + the autoSim state + the sim button to strip it out.
+  useEffect(() => {
+    if (!DEV_AUTOPLAY || !autoSim) return;
+    if (state.turn !== 'player' || state.phase === 'gameover') return;
+    const timer = window.setTimeout(() => {
+      const s = stateRef.current;
+      if (s.turn !== 'player' || s.phase === 'gameover') return;
+      if (s.phase === 'draw') {
+        const source = naviChooseDraw({ ...s, navi: s.player });
+        try {
+          setState(draw(s, 'player', source));
+        } catch { /* stock exhausted */ }
+        setMessage(`auto: drew from ${source}`);
+      } else if (s.phase === 'discard') {
+        const proxyState = { ...s, navi: s.player };
+        const knockId = naviChooseKnock(proxyState);
+        if (knockId != null) {
+          setState(knock(s, 'player', knockId));
+          setMessage('auto: knocking');
+        } else {
+          const discardId = naviChooseDiscard(proxyState);
+          setState(discard(s, 'player', discardId));
+          setSelectedId(null);
+          const card = s.player.find((c) => c.id === discardId);
+          setMessage(card ? `auto: discards ${card.rank}${card.suit}` : 'auto: discards');
+        }
+      }
+    }, state.phase === 'draw' ? NAVI_DRAW_DELAY : NAVI_DISCARD_DELAY);
+    return () => clearTimeout(timer);
+  }, [autoSim, state.turn, state.phase]);
 
   // Clear the navi-flash after a moment so it doesn't linger across turns.
   useEffect(() => {
@@ -292,6 +327,15 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
         </div>
 
         <div className={styles['rummy__actions']}>
+          {DEV_AUTOPLAY && (
+            <button
+              type="button"
+              className={`${styles['rummy__action']} ${styles['rummy__action--sim']}`}
+              onClick={() => setAutoSim((v) => !v)}
+            >
+              {autoSim ? 'sim ■' : 'sim ▶'}
+            </button>
+          )}
           <button
             type="button"
             className={styles['rummy__action']}

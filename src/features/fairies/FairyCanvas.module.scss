@@ -193,4 +193,14 @@
     border-right: 0.35rem solid transparent;
     border-top: 0.45rem solid rgba(255, 255, 255, 0.96);
   }
+
+  // When navi is near the top, flip: arrow at top pointing up, bubble below.
+  &[data-below='true'] {
+    flex-direction: column-reverse;
+  }
+
+  &[data-below='true'] &__arrow {
+    border-top: none;
+    border-bottom: 0.45rem solid rgba(255, 255, 255, 0.96);
+  }
 }

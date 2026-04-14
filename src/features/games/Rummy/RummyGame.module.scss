@@ -176,7 +176,7 @@
 
     &:hover:not(:disabled):not(&--idle) {
       transform: translateY(-10px);
-      z-index: 10;
+      z-index: 30;
     }
 
     &--idle { cursor: default; }
@@ -229,6 +229,14 @@
       transform: translateY(-1px);
     }
     &:disabled { opacity: 0.45; cursor: default; }
+  }
+
+  &__action--sim {
+    font-family: monospace;
+    font-size: 0.75rem;
+    opacity: 0.55;
+    padding: 0.4rem 1rem;
+    &:hover { opacity: 0.9; }
   }
 
   &__action--knock {
@@ -409,7 +417,26 @@
   .rummy {
     padding: 0.8rem 0.5rem 1rem;
   }
-  .rummy__navi-hand > * + * { margin-left: -42px; }
-  .rummy__player-hand > * + * { margin-left: -34px; }
+  .rummy__navi-hand > * + * { margin-left: -28px; }
+  .rummy__player-hand > * + * { margin-left: -22px; }
   .rummy__title { font-size: 1.5rem; }
+
+  // Shrink cards to 50×75 on mobile so a full 10-card hand fits the screen.
+  .card {
+    width: 50px;
+    height: 75px;
+
+    &__number { font-size: 1.15rem; }
+    &__suit {
+      font-size: 0.72rem;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+  }
+
+  // Pile slot placeholder matches the smaller card size.
+  .rummy__pile-empty {
+    width: 50px;
+    height: 75px;
+  }
 }

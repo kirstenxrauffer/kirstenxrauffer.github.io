@@ -60,7 +60,6 @@
     flex-direction: column;
     align-items: center;
     gap: 0.75rem;
-    min-height: 320px;
     // Anchor for the floating start-hint so it doesn't shift the column's
     // flow layout when it appears/disappears.
     position: relative;
@@ -236,6 +235,15 @@
       &:hover:not(:disabled) {
         background: rgba(210, 170, 240, 0.32);
       }
+    }
+
+    // DEV sim toggle — visually de-emphasised so it reads as a dev tool
+    &--sim {
+      font-family: monospace;
+      font-size: 0.75rem;
+      opacity: 0.55;
+      padding: 0.4rem 1rem;
+      &:hover { opacity: 0.9; }
     }
   }
 

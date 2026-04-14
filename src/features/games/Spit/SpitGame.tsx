@@ -27,6 +27,7 @@ import {
 import { CardBack, CardFace } from './CardView';
 import { newCardBackSession } from '../watercolorEngine';
 import styles from './SpitGame.module.scss';
+import { DEV_AUTOPLAY } from '../devAutoplay';
 
 // Navi's move cadence (ms). Randomised within this range each tick to feel
 // human. Tuned deliberately slow — the computer has perfect information about
@@ -84,6 +85,8 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   // Whoever just cleared their stockpiles — ONLY they may claim a centre pile
   // during 'slap'. Null outside slap phase.
   const [slapperSide, setSlapperSide] = useState<'player' | 'navi' | null>(null);
+  // DEV_AUTOPLAY — remove this line and the effect + button below to strip sim
+  const [autoSim, setAutoSim] = useState(false);
 
   // Refs mirror state for the navi timer so it sees live data each tick
   // without re-scheduling on every React render.
@@ -328,21 +331,23 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       if (cancelled) return;
       if (phaseRef.current !== 'playing') { schedule(); return; }
       const s = stateRef.current;
-      const moves = legalMovesFor(s.navi, s.center);
 
-      if (moves.length === 0) {
-        // No centre play — if any of navi's stockpiles are empty, slide a
-        // card from her largest pile into the vacant slot. This mirrors the
-        // rule the human can trigger by clicking an empty slot, and prevents
-        // navi from stalling when she's got room to re-organise.
-        const emptyIdx = s.navi.stockpiles.findIndex((p) => p.length === 0);
-        if (emptyIdx >= 0 && canFillEmpty(s.navi)) {
-          const sourceIdx = pickFillSource(s.navi, emptyIdx);
-          if (sourceIdx != null) {
-            const nextNavi = applyFillEmpty(s.navi, sourceIdx, emptyIdx);
-            setState({ ...s, navi: nextNavi });
-          }
+      // Priority 1: fill any empty slots before playing to centre. More exposed
+      // tops means more legal plays available on the next tick.
+      const emptyIdx = s.navi.stockpiles.findIndex((p) => p.length === 0);
+      if (emptyIdx >= 0 && canFillEmpty(s.navi)) {
+        const sourceIdx = pickFillSource(s.navi, emptyIdx);
+        if (sourceIdx != null) {
+          const nextNavi = applyFillEmpty(s.navi, sourceIdx, emptyIdx);
+          setState({ ...s, navi: nextNavi });
+          schedule();
+          return;
         }
+      }
+
+      // Priority 2: play a card to a centre pile.
+      const moves = legalMovesFor(s.navi, s.center);
+      if (moves.length === 0) {
         schedule();
         return;
       }
@@ -378,17 +383,39 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     if (roundEnded(state) || gameWinner(state) != null) return; // another effect owns the message
     if (isTotallyStuck(state)) {
       if (canSpit(state)) {
-        setMessage('fully stuck — click SPIT to flip new cards');
+        setMessage('Deal a new card with SPIT');
       } else if (canAnySpit(state)) {
-        const whose = state.player.spit.length > 0 ? 'your' : 'navi\'s';
-        setMessage(`fully stuck — click SPIT to flip from ${whose} reserve`);
+        setMessage(`Deal a new card with SPIT`);
       } else {
-        setMessage('deadlock — no cards left to flip');
+        setMessage('Deadlock');
       }
       return;
     }
     setMessage((m) => (m.startsWith('fully stuck') || m.startsWith('deadlock') ? '' : m));
   }, [state, phase]);
+
+  // DEV_AUTOPLAY: simulates player moves automatically.
+  // Remove this effect + the autoSim state + the sim button to strip it out.
+  useEffect(() => {
+    if (!DEV_AUTOPLAY || !autoSim || phase === 'gameover') return;
+    const t = window.setTimeout(() => {
+      if (phase === 'idle') { handleStart(); return; }
+      if (phase === 'slap' && slapperSide === 'player') {
+        handlePlayerSlap(Math.random() < 0.5 ? 0 : 1);
+        return;
+      }
+      if (phase === 'playing') {
+        const s = stateRef.current;
+        const moves = legalMovesFor(s.player, s.center);
+        if (moves.length > 0) {
+          playTopToCenter(moves[0].pileIdx);
+        } else if (isTotallyStuck(s) && canAnySpit(s)) {
+          handleSpit();
+        }
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [autoSim, phase, state, slapperSide, handleStart, handlePlayerSlap, playTopToCenter, handleSpit]);
 
   const playerLegal = useMemo(
     () => new Set(legalMovesFor(state.player, state.center).map((m) => m.pileIdx)),
@@ -460,10 +487,26 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
           interactive={false}
         />
 
+        {phase !== 'idle' && (
+          <div className={styles['spit__center-controls']}>
+            <button
+              type="button"
+              className={styles['spit__action']}
+              onClick={handleSpit}
+              disabled={!spitAvailable}
+            >
+              spit!
+            </button>
+          </div>
+        )}
+
         <div
           className={styles['spit__center']}
           data-slap={phase === 'slap' && slapperSide === 'player' ? 'true' : 'false'}
         >
+          <div className={styles['spit__spit']} aria-label="navi spit reserve">
+            {state.navi.spit.length > 0 ? <CardBack /> : <EmptySlot label="spit" />}
+          </div>
           <CenterPile
             pile={state.center[0]}
             highlight={naviHighlight?.centerIdx === 0}
@@ -478,6 +521,9 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
             slappable={phase === 'slap' && slapperSide === 'player'}
             onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(1) : undefined}
           />
+          <div className={styles['spit__spit']} aria-label="player spit reserve">
+            {state.player.spit.length > 0 ? <CardBack /> : <EmptySlot label="spit" />}
+          </div>
         </div>
 
         <SideRow
@@ -499,6 +545,15 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       <div className={styles['spit__footer']}>
         <div className={styles['spit__message']}>{message || '\u00a0'}</div>
         <div className={styles['spit__actions']}>
+          {DEV_AUTOPLAY && (
+            <button
+              type="button"
+              className={`${styles['spit__action']} ${styles['spit__action--sim']}`}
+              onClick={() => setAutoSim((v) => !v)}
+            >
+              {autoSim ? 'sim ■' : 'sim ▶'}
+            </button>
+          )}
           {phase === 'idle' && (
             <button
               type="button"
@@ -512,7 +567,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
           {phase !== 'idle' && (
             <button
               type="button"
-              className={styles['spit__action']}
+              className={`${styles['spit__action']} ${styles['spit__action--mobile-spit']}`}
               onClick={handleSpit}
               disabled={!spitAvailable}
             >
@@ -566,6 +621,7 @@ function SideRow({
   onPointerUpPile?: (ev: React.PointerEvent<HTMLElement>) => void;
   onPointerCancelPile?: (ev: React.PointerEvent<HTMLElement>) => void;
 }) {
+  const totalCards = side.stockpiles.reduce((sum, p) => sum + p.length, 0) + side.spit.length;
   return (
     <div className={styles[`spit__row`]} data-owner={owner}>
       <div
@@ -573,6 +629,7 @@ function SideRow({
         {...(owner === 'navi' ? { 'data-navi-anchor': 'navi' } : {})}
       >
         {owner === 'player' ? 'you' : 'navi'}
+        <span className={styles['spit__label-count']}>{totalCards}</span>
       </div>
       <div className={styles['spit__piles']}>
         {side.stockpiles.map((pile, i) => (
@@ -598,9 +655,6 @@ function SideRow({
             onPointerCancel={onPointerCancelPile}
           />
         ))}
-      </div>
-      <div className={styles['spit__spit']} aria-label={`${owner} spit reserve`}>
-        {side.spit.length > 0 ? <CardBack /> : <EmptySlot label="spit" />}
       </div>
     </div>
   );
@@ -694,7 +748,6 @@ function Stockpile({
           <EmptySlot label="—" />
         )}
       </div>
-      <span className={styles['spit__pile-count']}>{pile.length}</span>
     </div>
   );
 }
@@ -711,10 +764,31 @@ function CenterPile({
   onSlap?: () => void;
 }) {
   const top = pile.length ? pile[pile.length - 1] : null;
+  const understack = pile.slice(0, -1);
+  const visibleUnder = understack.slice(-15);
   const inner = (
     <>
-      {top ? <CardFace card={top} /> : <EmptySlot label="—" />}
-      <span className={styles['spit__pile-count']}>{pile.length}</span>
+      {visibleUnder.map((_, i) => {
+        const j = pileJitter(i);
+        return (
+          <div
+            key={i}
+            className={styles['spit__understack']}
+            style={{
+              transform: `translate(${i * 0.5 + j.dx}px, ${-i * 0.9 + j.dy}px) rotate(${j.rot}deg)`,
+              zIndex: i,
+            }}
+          >
+            <CardBack />
+          </div>
+        );
+      })}
+      <div
+        className={styles['spit__top']}
+        style={{ zIndex: visibleUnder.length + 1 }}
+      >
+        {top ? <CardFace card={top} /> : <EmptySlot label="—" />}
+      </div>
     </>
   );
   const common = {

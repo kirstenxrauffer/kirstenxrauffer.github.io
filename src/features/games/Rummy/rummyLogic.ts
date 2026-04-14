@@ -319,26 +319,11 @@ function makeDrawOutcome(state: RummyState): RummyState['outcome'] {
   };
 }
 
-// ─── AI ───────────────────────────────────────────────────────────────────────
-
-/**
- * Decide whether navi should draw from stock or discard. Takes the top
- * discard if it strictly reduces navi's deadwood; otherwise draws from stock.
- */
-export function naviChooseDraw(state: RummyState): DrawSource {
-  const baseline = bestMelding(state.navi).deadwoodValue;
-  if (state.discard.length === 0) return 'stock';
-  const top = state.discard[state.discard.length - 1];
-  const hypothetical = [...state.navi, top];
-  const afterDiscardBest = bestDiscardDeadwood(hypothetical);
-  // If taking + optimal discard drops deadwood meaningfully, take it.
-  return afterDiscardBest < baseline ? 'discard' : 'stock';
-}
+// ─── AI helpers (hand-agnostic) ───────────────────────────────────────────────
 
 /**
  * Given an 11-card hand, return the minimum deadwood achievable across all
- * possible discards. Useful for navi's draw decision and for checking if a
- * knock is available.
+ * possible discards. Used for draw decisions and knock eligibility checks.
  */
 function bestDiscardDeadwood(hand11: Card[]): number {
   let min = Infinity;
@@ -351,15 +336,28 @@ function bestDiscardDeadwood(hand11: Card[]): number {
 }
 
 /**
- * Decide which card navi discards. Picks the discard that minimises
- * post-discard deadwood; ties broken by preferring to keep cards that form
- * runs (higher ginRankOrder gets discarded first).
+ * Decide whether to draw from stock or discard for a given hand. Takes the
+ * top discard if it strictly reduces deadwood after an optimal discard;
+ * otherwise draws from stock.
  */
-export function naviChooseDiscard(state: RummyState): number {
-  const hand = state.navi;
+function chooseDrawSource(hand: Card[], discardPile: Card[]): DrawSource {
+  const baseline = bestMelding(hand).deadwoodValue;
+  if (discardPile.length === 0) return 'stock';
+  const top = discardPile[discardPile.length - 1];
+  const hypothetical = [...hand, top];
+  const afterDiscardBest = bestDiscardDeadwood(hypothetical);
+  return afterDiscardBest < baseline ? 'discard' : 'stock';
+}
+
+/**
+ * Pick the card to discard from a given hand. Minimises post-discard deadwood;
+ * ties broken by preferring to keep cards that form runs (discard highest-value
+ * deadwood first).
+ */
+function chooseDiscardFromHand(hand: Card[]): number {
   let bestIdx = 0;
   let bestDw = Infinity;
-  let bestPoints = -Infinity; // points of the discarded card, for tie-break
+  let bestPoints = -Infinity;
   for (let i = 0; i < hand.length; i++) {
     const rest = hand.filter((_, j) => j !== i);
     const dw = bestMelding(rest).deadwoodValue;
@@ -374,13 +372,10 @@ export function naviChooseDiscard(state: RummyState): number {
 }
 
 /**
- * Should navi knock on this discard? Returns the card id to knock-discard
- * when eligible, else null.
+ * Return the card id to knock-discard when eligible (deadwood ≤ 10 after
+ * discarding it), or null to keep playing.
  */
-export function naviChooseKnock(state: RummyState): number | null {
-  // navi is in discard phase with 11 cards — find the discard that yields
-  // the minimum deadwood; if ≤ 10, knock with it.
-  const hand = state.navi;
+function chooseKnockFromHand(hand: Card[]): number | null {
   let bestIdx = -1;
   let bestDw = Infinity;
   for (let i = 0; i < hand.length; i++) {
@@ -388,10 +383,30 @@ export function naviChooseKnock(state: RummyState): number | null {
     const dw = bestMelding(rest).deadwoodValue;
     if (dw < bestDw) { bestDw = dw; bestIdx = i; }
   }
-  if (bestIdx >= 0 && bestDw <= 10) {
-    // Always knock when eligible — keeping it simple. A smarter navi might
-    // hold for gin, but aggressive knocking gives the human more agency.
-    return hand[bestIdx].id;
-  }
+  // Always knock when eligible — aggressive knocking gives the human more agency.
+  if (bestIdx >= 0 && bestDw <= 10) return hand[bestIdx].id;
   return null;
+}
+
+// ─── AI (per-side public API) ─────────────────────────────────────────────────
+
+export function naviChooseDraw(state: RummyState): DrawSource {
+  return chooseDrawSource(state.navi, state.discard);
+}
+export function naviChooseDiscard(state: RummyState): number {
+  return chooseDiscardFromHand(state.navi);
+}
+export function naviChooseKnock(state: RummyState): number | null {
+  return chooseKnockFromHand(state.navi);
+}
+
+/** Same decisions applied to the player's hand — used by the autoSim. */
+export function playerChooseDraw(state: RummyState): DrawSource {
+  return chooseDrawSource(state.player, state.discard);
+}
+export function playerChooseDiscard(state: RummyState): number {
+  return chooseDiscardFromHand(state.player);
+}
+export function playerChooseKnock(state: RummyState): number | null {
+  return chooseKnockFromHand(state.player);
 }

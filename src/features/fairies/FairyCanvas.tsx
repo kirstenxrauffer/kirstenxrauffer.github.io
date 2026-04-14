@@ -187,10 +187,20 @@ export default function FairyCanvas({ onFairyClick, navOpen, onGameStart, gameAc
               el.dataset.nearContent = nearContent ? 'true' : 'false';
             }
           }
-          // Position the game-prompt tooltip above navi in the same way.
+          // Position the game-prompt tooltip relative to navi. If navi is too
+          // close to the top of the screen, show below; otherwise show above.
           if (promptEl) {
-            promptEl.style.transform =
-              `translate(calc(${x}px - 50%), calc(${y - LABEL_OFFSET_Y}px - 100%))`;
+            const promptH = promptEl.offsetHeight || 220;
+            const spaceAbove = y - LABEL_OFFSET_Y - promptH;
+            const below = spaceAbove < 16;
+            promptEl.dataset.below = below ? 'true' : 'false';
+            if (below) {
+              promptEl.style.transform =
+                `translate(calc(${x}px - 50%), ${y + LABEL_OFFSET_Y}px)`;
+            } else {
+              promptEl.style.transform =
+                `translate(calc(${x}px - 50%), calc(${y - LABEL_OFFSET_Y}px - 100%))`;
+            }
           }
         },
       }), hostRef.current);

@@ -51,7 +51,6 @@ import {
   GAME_HOVER_TRAVEL_SPEED,
   ANGRY_SHAKE_HZ,
   ANGRY_SHAKE_AMP,
-  ANGRY_DURATION_MS,
   CELEBRATE_LAP_SPEED,
   CELEBRATE_LAP_INSET,
 } from '../fairy/constants';
@@ -372,12 +371,9 @@ function tickGameHover(fairy: Fairy, dt: number, anchor: Vec2): void {
 function tickAngry(fairy: Fairy, dt: number, now: number): void {
   const fsm = fairy.fsm as Extract<FSMState, { kind: 'angry' }>;
   const elapsedMs = now - fsm.startedAt;
-  // Timeout: clear the React-owned mood so the next tick transitions back to
-  // wander via the mood override block. sketch.ts copies navArea.currentMood
-  // onto fairy.mood every frame, so mutating fairy.mood here would be stomped.
-  if (elapsedMs >= ANGRY_DURATION_MS && navArea.currentMood === 'angry') {
-    navArea.currentMood = 'normal';
-  }
+  // Mood is owned by React (handleGameEnd / handleGameClose in App.tsx) and
+  // War's per-round flashNaviMood. The FSM does NOT self-reset — it just
+  // shakes for as long as navArea.currentMood stays 'angry'.
   const t = elapsedMs / 1000;
   const shake = Math.sin(t * ANGRY_SHAKE_HZ * Math.PI * 2) * ANGRY_SHAKE_AMP;
   // Zero velocity so the post-switch integration does nothing — we set pos
