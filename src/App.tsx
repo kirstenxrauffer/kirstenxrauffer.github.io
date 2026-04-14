@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { FairyCanvas } from './features/fairies';
 import { WatercolorCanvas } from './features/watercolor';
@@ -65,12 +65,17 @@ function App() {
   // the parent's computed height which jumps instantly on route swap. Driving
   // a transform off a CSS variable lets the transition on .nav-menu interpolate
   // the new offset smoothly.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const inner = routesInnerRef.current;
     const outer = routesRef.current;
     if (!inner || !outer) return;
     const apply = () => {
-      outer.style.setProperty('--section-h', `${inner.offsetHeight}px`);
+      const h = inner.offsetHeight;
+      // Ignore 0-height frames (Suspense fallback briefly renders null on
+      // lazy-route swap) — the nav would otherwise animate through 0 and
+      // back, which looks like a double-jump.
+      if (h === 0) return;
+      outer.style.setProperty('--section-h', `${h}px`);
     };
     apply();
     const ro = new ResizeObserver(apply);
@@ -97,6 +102,15 @@ function App() {
       1250,
     );
     return () => clearTimeout(id);
+  }, [revealStarted]);
+
+  // Preload the lazy secondary-route chunks once the hero is revealing so
+  // that clicking About/Contact never hits a Suspense fallback (which renders
+  // null → a 0-height frame → a double-jump in the nav transition).
+  useEffect(() => {
+    if (!revealStarted) return;
+    import('./pages/About');
+    import('./pages/Contact');
   }, [revealStarted]);
 
   const CAROUSEL_EXIT_MS = 380;
