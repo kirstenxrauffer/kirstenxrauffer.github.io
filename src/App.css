@@ -74,6 +74,7 @@
   animation: none;
   opacity: 1;
   transform: scale(1);
+  margin-bottom: 4px;
 }
 
 @keyframes section-fade {
