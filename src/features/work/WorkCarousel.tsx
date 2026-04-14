@@ -531,8 +531,8 @@ export default function WorkCarousel({ company, onClose, exiting }: {
     // sits behind, ASCII spans absolute-positioned on top.
     const FIELD_W = 155;
     const FIELD_H = 160;
-    const CHAR_W  = 5.5; // px @ 0.58rem font-size
-    const LINE_H  = 14;
+    const CHAR_W  = 7.6; // px @ 0.8rem font-size
+    const LINE_H  = 19;
     const GAP     = 4;
 
     const count    = 5 + Math.floor(Math.random() * 5);
