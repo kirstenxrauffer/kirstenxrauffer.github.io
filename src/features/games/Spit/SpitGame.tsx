@@ -206,12 +206,14 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
 
   const resolveDrop = useCallback((x: number, y: number, d: DragState) => {
     const s = stateRef.current;
-    // Hit-test for an empty player stockpile under the release point. Drag
-    // is only the rearrange gesture now, so centre piles and non-empty own
-    // piles are not drop targets — those releases are silent no-ops.
+    // Hit-test under the release point. Two valid drop kinds:
+    //   'pile'   — own empty stockpile (fill-empty rearrange gesture)
+    //   'center' — a centre pile (play the card if legal for this source)
+    // Anything else is a silent no-op.
     let node: HTMLElement | null = document.elementFromPoint(x, y) as HTMLElement | null;
     while (node) {
-      if (node.getAttribute('data-drop-kind') === 'pile') {
+      const kind = node.getAttribute('data-drop-kind');
+      if (kind === 'pile') {
         const targetIdx = Number(node.getAttribute('data-drop-idx'));
         if (Number.isFinite(targetIdx)
           && targetIdx !== d.pileIdx
@@ -222,9 +224,24 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
         }
         return;
       }
+      if (kind === 'center') {
+        const centerIdx = Number(node.getAttribute('data-drop-idx')) as 0 | 1;
+        if (centerIdx === 0 || centerIdx === 1) {
+          const legal = legalMovesFor(s.player, s.center)
+            .find((m) => m.pileIdx === d.pileIdx && m.centerIdx === centerIdx);
+          if (legal) {
+            const { side: nextPlayer, center: nextCenter } = applyMove(s.player, s.center, legal);
+            setState({ ...s, player: nextPlayer, center: nextCenter });
+            setMessage('');
+          } else {
+            flashPile(d.pileIdx);
+          }
+        }
+        return;
+      }
       node = node.parentElement;
     }
-  }, []);
+  }, [flashPile]);
 
   const handlePointerMove = useCallback((ev: React.PointerEvent<HTMLElement>) => {
     setDrag((d) => {
@@ -503,6 +520,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
           </div>
           <CenterPile
             pile={state.center[0]}
+            centerIdx={0}
             highlight={naviHighlight?.centerIdx === 0}
             // Only the player-slapper sees the glowing invite + click target;
             // when navi is the clearer the piles stay passive as she picks.
@@ -511,6 +529,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
           />
           <CenterPile
             pile={state.center[1]}
+            centerIdx={1}
             highlight={naviHighlight?.centerIdx === 1}
             slappable={phase === 'slap' && slapperSide === 'player'}
             onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(1) : undefined}
@@ -754,11 +773,13 @@ function Stockpile({
 
 function CenterPile({
   pile,
+  centerIdx,
   highlight,
   slappable = false,
   onSlap,
 }: {
   pile: Card[];
+  centerIdx: 0 | 1;
   highlight: boolean;
   slappable?: boolean;
   onSlap?: () => void;
@@ -795,6 +816,8 @@ function CenterPile({
     className: styles['spit__center-pile'],
     'data-highlight': highlight ? 'true' : 'false',
     'data-slappable': slappable ? 'true' : 'false',
+    'data-drop-kind': 'center',
+    'data-drop-idx': String(centerIdx),
   };
   if (slappable && onSlap) {
     return (

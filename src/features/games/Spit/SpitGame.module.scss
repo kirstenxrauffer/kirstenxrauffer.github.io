@@ -36,8 +36,13 @@
     color: inherit;
     width: 2.1rem;
     height: 2.1rem;
+    padding: 0;
     border-radius: 50%;
     font-size: 1.3rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     transition: background 120ms ease;
     &:hover { background: rgba(255, 255, 255, 0.18); }
@@ -206,40 +211,33 @@
     justify-self: center;
   }
 
-  // Pill label under each spit reserve. Matches the owner-tinted pill
-  // look of &__row[data-owner=...] so the spit count reads as part of the
-  // side's territory.
+  // Solid white pill overlaid on the spit reserve card — mirrors War's
+  // &__count styling so deck-count labels read identically across games.
   &__spit-count {
     position: absolute;
-    bottom: -1.8rem;
+    bottom: 0;
     left: 50%;
     transform: translateX(-50%);
     display: inline-flex;
     align-items: baseline;
     gap: 0.35rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    font-size: 0.7rem;
-    letter-spacing: 0.1em;
+    padding: 0.18rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #2d103d;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: lowercase;
-    opacity: 0.85;
     white-space: nowrap;
-
-    &[data-owner='navi'] {
-      background: rgba(255, 200, 110, 0.05);
-      border-color: rgba(255, 200, 110, 0.16);
-    }
-    &[data-owner='player'] {
-      background: rgba(200, 150, 255, 0.06);
-      border-color: rgba(200, 150, 255, 0.2);
-    }
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    z-index: 2;
   }
 
   &__spit-count-num {
-    font-size: 0.7rem;
-    letter-spacing: 0.05em;
-    opacity: 0.6;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
   }
 
   &__center {
