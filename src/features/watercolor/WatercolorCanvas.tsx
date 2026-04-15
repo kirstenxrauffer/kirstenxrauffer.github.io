@@ -6,6 +6,7 @@ import warpFrag from '../../shaders/watercolor_warp.frag';
 import watercolorFrag from '../../shaders/watercolor.frag';
 import blurFrag from '../../shaders/watercolor_blur.frag';
 import sourceBlurFrag from '../../shaders/watercolor_source_blur.frag';
+import edgeSoftenFrag from '../../shaders/watercolor_edge_soften.frag';
 import { N_PRE_BLUR, REVEAL_DURATION, REVEAL_PROGRESS_TARGET, UNIFORM_DEFAULTS } from './constants';
 import { pickHeroImage, slugToSeed, extractPalette } from './utils';
 import type { WatercolorCanvasProps } from './types';
@@ -136,6 +137,23 @@ export default function WatercolorCanvas({
     const sourceBlurScene = new THREE.Scene();
     sourceBlurScene.add(new THREE.Mesh(quadGeo, sourceBlurMat));
 
+    // Post-Kuwahara edge softener — gradient-gated Gaussian that runs once
+    // after the Kuwahara chain, specifically to undo the hard-edge snap the
+    // variance-weighted sector filter produces on high-contrast silhouettes.
+    const edgeSoftenUniforms = {
+      uColor:      { value: paperTex as THREE.Texture },
+      uResolution: { value: new THREE.Vector2(w, h) },
+    };
+    const edgeSoftenMat = new THREE.ShaderMaterial({
+      vertexShader:   passthroughVert,
+      fragmentShader: edgeSoftenFrag,
+      uniforms:       edgeSoftenUniforms,
+      depthWrite:     false,
+      depthTest:      false,
+    });
+    const edgeSoftenScene = new THREE.Scene();
+    edgeSoftenScene.add(new THREE.Mesh(quadGeo, edgeSoftenMat));
+
     // ---- Pass B — composite uniforms --------------------------------------
     const D = UNIFORM_DEFAULTS;
     const passUniforms = {
@@ -238,6 +256,15 @@ export default function WatercolorCanvas({
           renderer.render(blurScene, camera);
           src = dst.texture;
         }
+
+        // Final pass: gradient-gated edge softener. Writes to the opposite
+        // preBlur slot from the one we just read.
+        const softenDst = preBlurRTs[(N_PRE_BLUR + 1) % 2];
+        edgeSoftenUniforms.uColor.value = src;
+        renderer.setRenderTarget(softenDst);
+        renderer.render(edgeSoftenScene, camera);
+        src = softenDst.texture;
+
         renderer.setRenderTarget(null);
 
         passUniforms.uColor.value = src;
@@ -301,6 +328,7 @@ export default function WatercolorCanvas({
         passUniforms.uResolution.value.set(rw, rh);
         blurUniforms.uResolution.value.set(rw, rh);
         sourceBlurUniforms.uResolution.value.set(rw, rh);
+        edgeSoftenUniforms.uResolution.value.set(rw, rh);
         petalScene.resize(rw, rh);
 
         // warpRT was cleared by setSize — re-render it at the same frozen time.
@@ -327,6 +355,13 @@ export default function WatercolorCanvas({
             renderer.render(blurScene, camera);
             src = dst.texture;
           }
+
+          const softenDst = preBlurRTs[(N_PRE_BLUR + 1) % 2];
+          edgeSoftenUniforms.uColor.value = src;
+          renderer.setRenderTarget(softenDst);
+          renderer.render(edgeSoftenScene, camera);
+          src = softenDst.texture;
+
           renderer.setRenderTarget(null);
           passUniforms.uColor.value = src;
         }
@@ -364,6 +399,7 @@ export default function WatercolorCanvas({
       warpMat.dispose();
       blurMat.dispose();
       sourceBlurMat.dispose();
+      edgeSoftenMat.dispose();
       passMat.dispose();
       quadGeo.dispose();
       colorTex.dispose();
