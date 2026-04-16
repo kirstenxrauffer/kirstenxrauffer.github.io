@@ -81,12 +81,13 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'custom-app-icons',
         label: 'custom app icons (mobile)',
-        description: 'Nitro feature letting subscribers swap the Discord home screen icon from a curated library, including seasonal drops like Halloween. Launched September 2023 with ~20 icons. Advocated internally for users to keep their chosen icon even after Nitro expires. Intentionally built easter eggs to drive organic engagement and discovery: the Pirate icon randomizes its display name on every tap, and a hidden interaction on the settings page has yet to be publicly discovered. Strong adoption and Nitro conversion, making this one of our top perks that our team shipped.',
+        description: 'Nitro feature letting subscribers swap the Discord home screen icon from a curated library, including seasonal drops like Halloween. Launched September 2023 with ~20 icons. Advocated internally for users to keep their chosen icon even after Nitro expires. Intentionally built easter eggs to drive organic engagement and discovery: the Pirate icon randomizes its display name on every tap, and a hidden interaction on the settings page has yet to be publicly discovered. Strong adoption, making this one of our top perks that our team shipped.',
         skills: ['React Native', 'iOS', 'TypeScript', 'UX Design'],
         leadership: ['Cross-functional advocacy'],
         assets: [
           '/work/discord/custom-app-icons/icon-options-preview.jpg',
           '/work/discord/custom-app-icons/new-icon-packs-preview.webp',
+          '/work/discord/custom-desktop-icons/ezgif-2-3bf8156bec.gif',
           '/work/discord/custom-app-icons/custom_app_icon_home_screen.webp',
           '/work/discord/custom-app-icons/custom_app_icon_selection.webp',
           '/work/discord/custom-app-icons/custom_app_icon_settings.webp',
@@ -95,7 +96,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'custom-desktop-icons',
         label: 'custom desktop icons',
-        description: 'Desktop-side implementation of Discord\'s custom app icon Nitro perk. Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, UX, and marketing; adapted mobile icon assets for desktop without support necessary from the core art team; shipped within 2 single sprints. Strong adoption among our users. Advocated for users to keep their chosen icon after Nitro expires, confirmed in the wild: <a href="https://reddit.com/r/discordapp/comments/1kmcpdk/" target="_blank" rel="noopener noreferrer">reddit.com/r/discordapp/comments/1kmcpdk/</a>',
+        description: 'Desktop-side implementation of Discord\'s custom app icon Nitro perk. Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, UX, and marketing; adapted mobile icon assets for desktop without support necessary from the core art team; shipped within 2 single sprints. Strong adoption, and a beloved perk.',
         skills: ['React', 'Electron', 'TypeScript', 'UX Design'],
         leadership: ['Pitched to Head of Product', 'End-to-end ownership'],
         assets: [
@@ -189,7 +190,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'pdp',
         label: 'product detail page',
-        description: 'Built the Frequently Bought Together feature on the PDP, which laid the groundwork for future teams to build Make It A Routine. Also developed the 2.0 delivery switcher component.',
+        description: 'Built the Frequently Bought Together feature on the PDP, which laid the groundwork for future teams to build Make It A Routine. Contributed to the development of the 2.0 delivery switcher component.',
         skills: ['React', 'TypeScript', 'CSS'],
         assets: [
           '/work/ulta/pdp/frequently-bought-together.gif',
