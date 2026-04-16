@@ -170,6 +170,29 @@
   overflow: visible;
 }
 
+/* Detail row exit: slides out to the right, matching the panel exit motion. */
+@keyframes wc-row-slide-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+.wc-row--detail-exiting {
+  animation: wc-row-slide-out 0.38s cubic-bezier(0.37, 0, 0.63, 1) both;
+  animation-delay: 0s;
+  pointer-events: none;
+}
+
+/* Exiting sticky notes: slide out in lockstep with the detail row. */
+.wc-sticky-notes--exiting {
+  animation: wc-panel-out 0.38s cubic-bezier(0.37, 0, 0.63, 1) both;
+  pointer-events: none;
+}
+
+/* Suppress note entry animations on exiting notes so they don't snap back. */
+.wc-sticky-notes--exiting .wc-note-anchor {
+  animation: none;
+}
+
 /* ── Perforation strips (top & bottom) ─────────────────────────────────── */
 /*
    Mask SVG tile (24×20): one path with fill-rule='evenodd'. Outer 24×20
@@ -616,13 +639,10 @@
   text-transform: uppercase;
   letter-spacing: -0.02em;
   line-height: 1.08;
-  color: var(--brand-color, #f0b030);
-  /* Stamped-ink feel on white paper: subtle dark drop shadow + soft brand
-     halo so the text holds up against the brush frames behind it. */
+  color: #fff;
   text-shadow:
     0 1px 0 rgba(0, 0, 0, 0.12),
-    0 2px 6px rgba(0, 0, 0, 0.10),
-    0 0 14px color-mix(in srgb, var(--brand-color, #f0b030) 35%, transparent);
+    0 2px 6px rgba(0, 0, 0, 0.10);
   transition: color 0.28s cubic-bezier(0.16, 1, 0.3, 1), text-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -635,15 +655,14 @@
 /* Hover: tint the card toward the brand color, darken the text slightly so
    the brush frames pop against a warmer paper. */
 .wc-thumb--title.wc-thumb--clickable:hover .wc-thumb__media--title {
-  background: color-mix(in srgb, var(--brand-color, #f0b030) 8%, #fff);
+  background: #000;
 }
 
 .wc-thumb--title.wc-thumb--clickable:hover .wc-thumb__title-text {
-  color: color-mix(in srgb, var(--brand-color, #f0b030) 88%, #000);
+  color: #fff;
   text-shadow:
     0 1px 0 rgba(0, 0, 0, 0.18),
-    0 2px 7px rgba(0, 0, 0, 0.14),
-    0 0 20px color-mix(in srgb, var(--brand-color, #f0b030) 55%, transparent);
+    0 2px 7px rgba(0, 0, 0, 0.14);
 }
 
 /* Brush-frame layer — sits below the vignette + title text.
@@ -771,44 +790,38 @@
   animation: none;
 }
 
-/* Note 1 (description): bottom of the detail row (2nd carousel), horizontally
-   between cells 1 and 2 of the project assets. The detail track is scrolled so
-   the first interactive cell sits at x=0 in its viewport, so cell-1-to-cell-2
-   midpoint is at (cell-w + gap/2) from the panel's left edge. The note is
-   175px wide, so offset by half that to center on the midpoint. The note hangs
-   off the bottom, with a small overlap on the panel for visual anchoring. */
-.wc-note-anchor--detail-mid {
-  top: calc(100% - 30px);
-  left: calc(var(--wc-cell-w) + (var(--wc-cell-gap) / 2) - 87.5px);
+/* ── Desktop: sticky notes pinned to top-center of viewport ────────────── */
+@media (min-width: 641px) {
+  .wc-sticky-notes {
+    position: fixed;
+    inset: auto;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .wc-note-anchor--detail-mid,
+  .wc-note-anchor--top-selected,
+  .wc-note-anchor--detail-br {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+  }
 }
 
-/* Note 2 (skills): sits immediately to the right of the description note
-   (.wc-note-anchor--detail-mid) on desktop. Same vertical anchor (bottom of
-   detail row), offset horizontally by the note's own width (175px) + 14px gap. */
-.wc-note-anchor--top-selected {
-  top: calc(100% - 30px);
-  left: calc(var(--wc-cell-w) + (var(--wc-cell-gap) / 2) - 87.5px + 175px + 14px);
-}
-
-/* Note 3 (doodle): right side of the panel, bottom of the 2nd carousel row —
-   mirrors the vertical anchor of notes 1 and 2 so all three notes hang off
-   the same baseline. */
-.wc-note-anchor--detail-br {
-  top: calc(100% - 30px);
-  right: 2rem;
-}
-
-/* On mobile, only the description sticky note is shown — the skills note
-   would crowd the selected cell and the doodle note has nowhere to land
-   without overlapping the carousel rows. Position note 1 under the first
-   cell (centered on it) rather than between cells 1 and 2. */
+/* ── Mobile: only description note, positioned under the first cell ───── */
 @media (max-width: 640px) {
+  .wc-note-anchor--detail-mid {
+    top: calc(100% - 30px);
+    left: calc(var(--wc-cell-w) / 2 - 87.5px);
+  }
   .wc-note-anchor--top-selected,
   .wc-note-anchor--detail-br {
     display: none;
-  }
-  .wc-note-anchor--detail-mid {
-    left: calc(var(--wc-cell-w) / 2 - 87.5px);
   }
 }
 

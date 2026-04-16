@@ -155,6 +155,17 @@ function App() {
     }
   }, [activeCompany]);
 
+  const handleCarouselDismiss = useCallback(() => {
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    if (activeCompany !== null) {
+      setExitingCompany(activeCompany);
+      setActiveCompany(null);
+      exitTimerRef.current = setTimeout(() => {
+        setExitingCompany(null);
+      }, CAROUSEL_EXIT_MS);
+    }
+  }, [activeCompany]);
+
   const handleCompanySelect = useCallback((slug: string) => {
     if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
     if (activeCompany === slug) return;
@@ -259,7 +270,9 @@ function App() {
             ready={revealComplete}
             onClose={handleClose}
             onCompanySelect={handleCompanySelect}
+            onCarouselDismiss={handleCarouselDismiss}
             palette={palette}
+            carouselActive={activeCompany !== null || exitingCompany !== null}
           />
         </div>
       </main>

@@ -359,7 +359,7 @@ function TitleThumb({ index, label, active, firstLit, fontIndex, styleIndex, onC
           <TitleFrames
             fieldWidth={320}
             fieldHeight={190}
-            color={brandColor ?? '#f0b030'}
+            color="#ffffff"
             wordCount={wordCount}
             labelHash={labelHash}
             styleIndex={styleIndex}
@@ -398,8 +398,10 @@ export default function WorkCarousel({ company, onClose, exiting }: {
   exiting?: boolean;
 }) {
   const [selectedProject, setSelectedProject] = useState<ProjectAssets | null>(null);
+  const [exitingProject,  setExitingProject]  = useState<ProjectAssets | null>(null);
   const [detailKey,        setDetailKey]       = useState(0);
   const [closing,          setClosing]         = useState(false);
+  const exitDetailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMobileClose = useCallback(() => {
     if (closing) return;
@@ -479,6 +481,8 @@ export default function WorkCarousel({ company, onClose, exiting }: {
 
   useEffect(() => {
     setSelectedProject(null);
+    setExitingProject(null);
+    if (exitDetailTimer.current) clearTimeout(exitDetailTimer.current);
     setAnyDetailHovered(false);
     hidePreview();
   }, [company.slug, hidePreview]);
@@ -515,12 +519,25 @@ export default function WorkCarousel({ company, onClose, exiting }: {
     return () => cancelAnimationFrame(raf);
   }, [detailKey, scrollToFirst]);
 
+  const DETAIL_EXIT_MS = 380;
+
   const handleProjectClick = useCallback((project: ProjectAssets) => {
     hidePreview();
     setSelectedProject(prev => {
-      if (prev?.slug === project.slug) return null;
+      if (prev?.slug === project.slug) {
+        // Same project clicked again — animate the detail row out
+        if (exitDetailTimer.current) clearTimeout(exitDetailTimer.current);
+        setExitingProject(prev);
+        exitDetailTimer.current = setTimeout(() => {
+          setExitingProject(null);
+        }, DETAIL_EXIT_MS);
+        return null;
+      }
       setDetailKey(k => k + 1);
       setAnyDetailHovered(false);
+      // If switching projects, cancel any pending exit animation
+      if (exitDetailTimer.current) clearTimeout(exitDetailTimer.current);
+      setExitingProject(null);
       return project;
     });
   }, [hidePreview]);
@@ -743,6 +760,32 @@ export default function WorkCarousel({ company, onClose, exiting }: {
           </div>
         )}
 
+        {/* ── Exiting detail carousel (animates out to the right) ──────── */}
+        {exitingProject && exitingProject.assets.length > 0 && (
+          <div className="wc-row wc-row--detail wc-row--detail-exiting" key={`detail-exit-${exitingProject.slug}`}>
+            <div className="wc-row__track">
+              {Array.from({ length: FILLERS_START }, (_, fi) => (
+                <FillerThumb key={`detail-filler-start-${fi}`} index={fi} />
+              ))}
+              {exitingProject.assets.map((asset, i) => (
+                <AssetThumb
+                  key={asset}
+                  url={asset}
+                  index={FILLERS_START + i}
+                  firstLit={false}
+                  brandColor={company.color}
+                />
+              ))}
+              {Array.from({ length: FILLERS_END }, (_, fi) => (
+                <FillerThumb
+                  key={`detail-filler-end-${fi}`}
+                  index={FILLERS_START + exitingProject.assets.length + fi}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* ── Sticky notes: SIBLING of .wc-panel so gaps between notes are
@@ -786,6 +829,62 @@ export default function WorkCarousel({ company, onClose, exiting }: {
               >
                 <div className="sn-doodle-field">
                   {/* SVG hand-drawn squiggles/spirals/etc — sits behind ASCII */}
+                  <StickyDoodles
+                    fieldWidth={155}
+                    fieldHeight={160}
+                    color={notePalettes[2].divider}
+                  />
+                  {noteDoodles.map((d, i) => (
+                    <span
+                      key={i}
+                      className="sn-doodle"
+                      style={{ left: `${d.x}px`, top: `${d.y}px` }}
+                    >
+                      {d.text}
+                    </span>
+                  ))}
+                </div>
+              </StickyNote>
+            </div>
+        </div>
+      )}
+      {/* Exiting sticky notes — slide out with the detail row */}
+      {exitingProject && (
+        <div className="wc-sticky-notes wc-sticky-notes--exiting" key={`notes-exit-${exitingProject.slug}`}>
+            {exitingProject.description && (
+              <div className="wc-note-anchor wc-note-anchor--detail-mid">
+                <StickyNote
+                  key={`${exitingProject.slug}-desc`}
+                  title={exitingProject.label}
+                  palette={notePalettes[0]}
+                  rotation={noteRotations[0]}
+                >
+                  <p dangerouslySetInnerHTML={{ __html: exitingProject.description }} />
+                </StickyNote>
+              </div>
+            )}
+            {((exitingProject.skills?.length ?? 0) > 0 || (exitingProject.leadership?.length ?? 0) > 0) && (
+              <div className="wc-note-anchor wc-note-anchor--top-selected">
+                <StickyNote
+                  key={`${exitingProject.slug}-skills`}
+                  title="skills"
+                  palette={notePalettes[1]}
+                  rotation={noteRotations[1]}
+                >
+                  <ul>
+                    {exitingProject.skills?.map(s => <li key={s}>{s}</li>)}
+                    {exitingProject.leadership?.map(l => <li key={l}>{l}</li>)}
+                  </ul>
+                </StickyNote>
+              </div>
+            )}
+            <div className="wc-note-anchor wc-note-anchor--detail-br">
+              <StickyNote
+                key={`${exitingProject.slug}-doodle`}
+                palette={notePalettes[2]}
+                rotation={noteRotations[2]}
+              >
+                <div className="sn-doodle-field">
                   <StickyDoodles
                     fieldWidth={155}
                     fieldHeight={160}

@@ -54,13 +54,17 @@ export default function NavMenu({
   ready = false,
   onClose,
   onCompanySelect,
+  onCarouselDismiss,
   palette = [],
+  carouselActive = false,
 }: {
   open: boolean;
   ready?: boolean;
   onClose: () => void;
   onCompanySelect?: (slug: string) => void;
+  onCarouselDismiss?: () => void;
   palette?: string[];
+  carouselActive?: boolean;
 }) {
   const [openSub, setOpenSub]     = useState<string | null>(null);
   const [side, setSide]           = useState<Side>('right');
@@ -104,7 +108,7 @@ export default function NavMenu({
           (menuOpen || openSub) ? 'nav-overlay--visible' : '',
           navHovered ? 'nav-overlay--dim' : '',
         ].filter(Boolean).join(' ')}
-        onClick={(e) => { e.nativeEvent.stopPropagation(); closeAll(); }}
+        onClick={(e) => { e.nativeEvent.stopPropagation(); carouselActive && onCarouselDismiss ? onCarouselDismiss() : closeAll(); }}
         aria-hidden="true"
       />
 
