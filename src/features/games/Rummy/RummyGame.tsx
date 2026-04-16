@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { GameProps, Card } from '../types';
 import { makeDeck, shuffle } from '../deck';
 import {
@@ -54,19 +55,84 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
   // Fresh watercolor back for every new game session.
   useEffect(() => { newCardBackSession(); }, []);
 
-  // Sort the player's hand for readability — by suit, then by rank-order.
-  // During the discard phase (hand has 11 cards), the last element is the
-  // just-drawn card and is held out of the sort so it sits at the far right
-  // of the row — this mirrors how humans play on a physical table, giving a
-  // visual cue for "this is new — decide whether to keep it."
-  const { sortedMain, newlyDrawn } = useMemo(() => {
-    if (state.player.length === 11 && state.turn === 'player' && state.phase === 'discard') {
-      const last = state.player[state.player.length - 1];
-      const rest = state.player.slice(0, -1);
-      return { sortedMain: sortHand(rest), newlyDrawn: last };
+  // ── Hand ordering — player can drag-and-drop to reorder ──────────────────
+  // `handOrder` stores card IDs in the player's chosen display order. It is
+  // seeded from the default sort when a round starts and updated as cards
+  // enter/leave the hand.
+  const [handOrder, setHandOrder] = useState<number[]>(() =>
+    sortHand(initial.player).map((c) => c.id),
+  );
+
+  // Track the previous player array length so we can detect draw vs discard.
+  const prevPlayerLenRef = useRef(initial.player.length);
+
+  // Keep handOrder in sync as the hand changes (draw, discard, new round).
+  useEffect(() => {
+    const prevLen = prevPlayerLenRef.current;
+    const curLen = state.player.length;
+    prevPlayerLenRef.current = curLen;
+
+    const curIds = new Set(state.player.map((c) => c.id));
+
+    if (curLen === 10 && prevLen !== 10) {
+      // Round start or after discard — if all IDs are new (new deal), reset
+      // to sorted order; otherwise just prune the removed card.
+      const kept = handOrder.filter((id) => curIds.has(id));
+      if (kept.length === 0) {
+        // New deal — seed from sorted hand.
+        setHandOrder(sortHand(state.player).map((c) => c.id));
+      } else {
+        setHandOrder(kept);
+      }
+    } else if (curLen === 11 && prevLen === 10) {
+      // Player just drew — append the new card at the end.
+      const newCard = state.player.find((c) => !handOrder.includes(c.id));
+      if (newCard) setHandOrder((prev) => [...prev, newCard.id]);
     }
-    return { sortedMain: sortHand(state.player), newlyDrawn: null as Card | null };
-  }, [state.player, state.turn, state.phase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.player]);
+
+  // Resolve handOrder IDs to Card objects. The newly-drawn card (last in order
+  // when hand has 11 cards during the player's discard phase) is separated out
+  // for the visual "new card" treatment — unless the user has dragged it into
+  // the hand, in which case it's no longer at the tail.
+  const { sortedMain, newlyDrawn } = useMemo(() => {
+    const cardById = new Map(state.player.map((c) => [c.id, c]));
+    const ordered = handOrder
+      .filter((id) => cardById.has(id))
+      .map((id) => cardById.get(id)!);
+
+    if (
+      ordered.length === 11 &&
+      state.turn === 'player' &&
+      state.phase === 'discard'
+    ) {
+      // The "newly drawn" card is the one that was appended when drawing.
+      // It's at the tail of handOrder unless the user dragged it elsewhere.
+      const lastId = ordered[ordered.length - 1].id;
+      const drawnCard = state.player[state.player.length - 1];
+      if (lastId === drawnCard.id) {
+        return { sortedMain: ordered.slice(0, -1), newlyDrawn: ordered[ordered.length - 1] };
+      }
+    }
+    return { sortedMain: ordered, newlyDrawn: null as Card | null };
+  }, [state.player, state.turn, state.phase, handOrder]);
+
+  // ── Drag-and-drop state (pointer events — works on desktop + mobile) ────
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
+  const pointerDragRef = useRef<{
+    pointerId: number;
+    startIdx: number;
+    startX: number;
+    startY: number;
+    offsetX: number; // grab offset so ghost lifts from card center
+    offsetY: number;
+    moved: boolean; // distinguishes drag from click
+    currentDropIdx: number | null; // mirror of dropIdx for use in pointerUp
+  } | null>(null);
+  const handRowRef = useRef<HTMLDivElement>(null);
 
   // Player's current meld analysis — drives which cards get highlighted and
   // whether knock/gin buttons are live.
@@ -123,7 +189,10 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
 
   const handleNextRound = useCallback(() => {
     processedOutcomeRef.current = null;
-    setState(dealInitial(shuffle(makeDeck())));
+    const fresh = dealInitial(shuffle(makeDeck()));
+    setState(fresh);
+    setHandOrder(sortHand(fresh.player).map((c) => c.id));
+    prevPlayerLenRef.current = fresh.player.length;
     setSelectedId(null);
     setNaviFlashId(null);
     setMessage('');
@@ -251,6 +320,93 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
     }
   }, [state, selectedId]);
 
+  // ── Drag-and-drop reordering ──────────────────────────────────────────────
+  // Build the full display list (main + newlyDrawn) so drag indices are
+  // consistent with the rendered order.
+  const displayCards = useMemo(() => {
+    const list = [...sortedMain];
+    if (newlyDrawn) list.push(newlyDrawn);
+    return list;
+  }, [sortedMain, newlyDrawn]);
+
+  const reorderHand = useCallback((fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    setHandOrder((prev) => {
+      // Map display indices to handOrder indices via card IDs.
+      const fromId = displayCards[fromIdx]?.id;
+      const toId = displayCards[toIdx]?.id;
+      if (fromId == null || toId == null) return prev;
+      const fromOrd = prev.indexOf(fromId);
+      const toOrd = prev.indexOf(toId);
+      if (fromOrd === -1 || toOrd === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromOrd, 1);
+      next.splice(toOrd, 0, moved);
+      return next;
+    });
+  }, [displayCards]);
+
+  // Pixels the pointer must travel before a pointerdown is treated as a drag
+  // (vs a tap/click). Keeps tiny tremors from triggering reorder.
+  const DRAG_THRESHOLD = 5;
+
+  const handleCardPointerDown = useCallback((e: React.PointerEvent, idx: number) => {
+    if (e.button !== 0) return; // left/primary only
+    e.preventDefault();
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ok */ }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    pointerDragRef.current = {
+      pointerId: e.pointerId,
+      startIdx: idx,
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - (rect.left + rect.width / 2),
+      offsetY: e.clientY - (rect.top + rect.height / 2),
+      moved: false,
+      currentDropIdx: null,
+    };
+  }, []);
+
+  const handleCardPointerMove = useCallback((e: React.PointerEvent) => {
+    const d = pointerDragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    if (!d.moved) {
+      const dx = Math.abs(e.clientX - d.startX);
+      const dy = Math.abs(e.clientY - d.startY);
+      if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
+      d.moved = true;
+      setDragIdx(d.startIdx);
+    }
+    // Update ghost position.
+    setGhostPos({ x: e.clientX - d.offsetX, y: e.clientY - d.offsetY });
+    // Hit-test against the hand row's children to find the drop target.
+    if (!handRowRef.current) return;
+    const children = Array.from(handRowRef.current.children) as HTMLElement[];
+    for (let i = 0; i < children.length; i++) {
+      const rect = children[i].getBoundingClientRect();
+      if (e.clientX >= rect.left && e.clientX < rect.right) {
+        d.currentDropIdx = i;
+        setDropIdx(i);
+        break;
+      }
+    }
+  }, []);
+
+  const handleCardPointerUp = useCallback((e: React.PointerEvent) => {
+    const d = pointerDragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    if (d.moved && d.currentDropIdx != null) {
+      reorderHand(d.startIdx, d.currentDropIdx);
+    } else if (!d.moved) {
+      // Treat as a click — select the card for discard.
+      handleSelectCard(displayCards[d.startIdx]?.id);
+    }
+    pointerDragRef.current = null;
+    setDragIdx(null);
+    setDropIdx(null);
+    setGhostPos(null);
+  }, [reorderHand, handleSelectCard, displayCards]);
+
   // Set of card ids that are part of a meld, for visual grouping in the hand.
   const meldedIds = useMemo(() => {
     const s = new Set<number>();
@@ -341,43 +497,37 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
         </div>
       </div>
 
-      {/* Player's hand — sorted, with meld highlights. */}
+      {/* Player's hand — draggable, with meld highlights. */}
       <div className={styles['rummy__player']}>
         <div className={styles['rummy__side-label']}>you</div>
-        <div className={styles['rummy__player-hand']}>
-          {sortedMain.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className={[
-                styles['rummy__card-btn'],
-                selectedId === c.id  ? styles['rummy__card-btn--selected'] : '',
-                meldedIds.has(c.id)  ? styles['rummy__card-btn--melded']   : '',
-                state.phase !== 'discard' || state.turn !== 'player' ? styles['rummy__card-btn--idle'] : '',
-              ].filter(Boolean).join(' ')}
-              onClick={() => handleSelectCard(c.id)}
-              disabled={gameOver}
-            >
-              <CardFace card={c} />
-            </button>
-          ))}
-          {newlyDrawn && (
-            <button
-              key={newlyDrawn.id}
-              type="button"
-              className={[
-                styles['rummy__card-btn'],
-                styles['rummy__card-btn--new'],
-                selectedId === newlyDrawn.id ? styles['rummy__card-btn--selected'] : '',
-                meldedIds.has(newlyDrawn.id) ? styles['rummy__card-btn--melded']   : '',
-              ].filter(Boolean).join(' ')}
-              onClick={() => handleSelectCard(newlyDrawn.id)}
-              disabled={gameOver}
-              aria-label="newly drawn card"
-            >
-              <CardFace card={newlyDrawn} />
-            </button>
-          )}
+        <div className={styles['rummy__player-hand']} ref={handRowRef}>
+          {displayCards.map((c, i) => {
+            const isNew = newlyDrawn != null && c.id === newlyDrawn.id;
+            const isDragging = dragIdx === i;
+            const isDropTarget = dropIdx === i && dragIdx != null && dropIdx !== dragIdx;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                className={[
+                  styles['rummy__card-btn'],
+                  selectedId === c.id  ? styles['rummy__card-btn--selected'] : '',
+                  meldedIds.has(c.id)  ? styles['rummy__card-btn--melded']   : '',
+                  state.phase !== 'discard' || state.turn !== 'player' ? styles['rummy__card-btn--idle'] : '',
+                  isNew               ? styles['rummy__card-btn--new']      : '',
+                  isDragging          ? styles['rummy__card-btn--dragging']  : '',
+                  isDropTarget        ? styles['rummy__card-btn--drop-target'] : '',
+                ].filter(Boolean).join(' ')}
+                onPointerDown={!gameOver ? (e) => handleCardPointerDown(e, i) : undefined}
+                onPointerMove={!gameOver ? handleCardPointerMove : undefined}
+                onPointerUp={!gameOver ? handleCardPointerUp : undefined}
+                disabled={gameOver}
+                aria-label={isNew ? 'newly drawn card' : undefined}
+              >
+                <CardFace card={c} />
+              </button>
+            );
+          })}
         </div>
 
         <div className={styles['rummy__actions']}>
@@ -441,6 +591,18 @@ export default function RummyGame({ onEnd, onClose }: GameProps) {
             </button>
           )}
         </div>
+      )}
+
+      {/* Floating ghost card during drag — portalled to body so it isn't
+          clipped by overflow or z-index stacking contexts. */}
+      {dragIdx != null && ghostPos && displayCards[dragIdx] && createPortal(
+        <div
+          className={styles['rummy__ghost']}
+          style={{ left: ghostPos.x, top: ghostPos.y }}
+        >
+          <CardFace card={displayCards[dragIdx]} />
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -234,16 +234,16 @@
     border: none;
     padding: 0;
     cursor: pointer;
+    touch-action: none; // prevent browser pan/scroll during pointer drag
     transition: transform 150ms ease, filter 150ms ease;
     font-family: inherit;
 
-    &:hover:not(:disabled):not(&--idle) {
+    &:hover:not(:disabled) {
       transform: translateY(-10px);
       z-index: 30;
     }
 
     &--idle { cursor: default; }
-    &--idle:hover { transform: none; }
 
     &--selected {
       transform: translateY(-18px) !important;
@@ -265,6 +265,18 @@
       // A subtle gold underline on the card face so the user sees which cards
       // are currently part of a meld.
       filter: drop-shadow(0 0 8px rgba(255, 210, 120, 0.55));
+    }
+
+    // Drag-and-drop feedback.
+    &--dragging {
+      opacity: 0.35;
+      transform: scale(0.95);
+    }
+
+    &--drop-target {
+      // Subtle gap opens at the insertion point.
+      margin-left: 8px !important;
+      transition: margin-left 150ms ease, transform 150ms ease, filter 150ms ease;
     }
 
     &:disabled:not(&--selected):not(&--melded) { opacity: 0.85; }
@@ -309,6 +321,16 @@
     &:hover:not(:disabled) {
       background: linear-gradient(135deg, #c598f0 0%, #9a6cdc 100%);
     }
+  }
+
+  // ── Drag ghost — follows the pointer during card reorder ─────────────────
+  &__ghost {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    transform: translate(-50%, -50%) rotate(3deg) scale(1.08);
+    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.45));
+    opacity: 0.92;
   }
 
   // ── End-of-game reveal panel ─────────────────────────────────────────────

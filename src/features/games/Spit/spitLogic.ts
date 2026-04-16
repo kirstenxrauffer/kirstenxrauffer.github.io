@@ -339,8 +339,90 @@ export function gameWinner(state: SpitState): Side | null {
   return null;
 }
 
-/** Deal a freshly shuffled 52-card deck into an initial state with both
- *  center piles seeded from one spit flip. */
+/**
+ * After a slap redistribution, check whether a side has 0 cards — meaning
+ * we enter the endgame round. Returns the side that is "winning" (has 0
+ * cards), or null if both still have cards.
+ */
+export function needsEndgameRound(state: SpitState): Side | null {
+  if (sideTotal(state.player) === 0 && sideTotal(state.navi) > 0) return 'player';
+  if (sideTotal(state.navi)   === 0 && sideTotal(state.player) > 0) return 'navi';
+  return null;
+}
+
+/**
+ * Set up the endgame round. The winning side (0 cards) receives exactly 1
+ * face-down card taken from the opponent. That single card goes into the
+ * winner's first stockpile slot. Centre piles stay empty — spit starts it.
+ */
+export function applyEndgameSetup(
+  state: SpitState,
+  winningSide: Side,
+): SpitState {
+  const loser = winningSide === 'player' ? state.navi : state.player;
+
+  // Take one card from the loser's spit reserve, or largest stockpile.
+  let card: Card;
+  let newLoser: SideState;
+  if (loser.spit.length > 0) {
+    card = loser.spit[loser.spit.length - 1];
+    newLoser = { ...loser, spit: loser.spit.slice(0, -1) };
+  } else {
+    let bestIdx = 0;
+    for (let i = 1; i < loser.stockpiles.length; i++) {
+      if (loser.stockpiles[i].length > loser.stockpiles[bestIdx].length) bestIdx = i;
+    }
+    const pile = loser.stockpiles[bestIdx];
+    card = pile[pile.length - 1];
+    const newPiles = loser.stockpiles.map((p, i) =>
+      i === bestIdx ? p.slice(0, -1) : p,
+    );
+    newLoser = { ...loser, stockpiles: newPiles };
+  }
+
+  const winnerSide: SideState = {
+    stockpiles: [[card], [], [], [], []],
+    spit: [],
+  };
+
+  return {
+    player: winningSide === 'player' ? winnerSide : newLoser,
+    navi:   winningSide === 'navi'   ? winnerSide : newLoser,
+    center: [[], []],
+  };
+}
+
+/**
+ * Resolve the endgame slap when the LOSING side cleared their stockpiles.
+ * The loser gets just 1 card; the winner (who failed to play their card
+ * first) takes everything else. Both sides redeal.
+ */
+export function applyEndgameSlap(
+  state: SpitState,
+  winningSide: Side,
+  shuffler: <T>(a: T[]) => T[],
+): SpitState {
+  // Gather every card in play.
+  const all = shuffler([
+    ...collectSideCards(state.player),
+    ...collectSideCards(state.navi),
+    ...state.center[0],
+    ...state.center[1],
+  ]);
+
+  // Loser who cleared gets 1 card; winner takes the rest.
+  const loserCards = [all[0]];
+  const winnerCards = all.slice(1);
+
+  return {
+    player: winningSide === 'player' ? dealSide(winnerCards) : dealSide(loserCards),
+    navi:   winningSide === 'navi'   ? dealSide(winnerCards) : dealSide(loserCards),
+    center: [[], []],
+  };
+}
+
+/** Deal a freshly shuffled 52-card deck into an initial state.
+ *  Centre piles start empty — the player triggers the first spit flip. */
 export function dealInitial(deck: Card[]): SpitState {
   const pCards = deck.slice(0, 26);
   const nCards = deck.slice(26);
@@ -353,10 +435,9 @@ export function dealInitial(deck: Card[]): SpitState {
     }
     return { stockpiles, spit: cards.slice(idx) };
   };
-  const seeded: SpitState = {
+  return {
     player: buildSide(pCards),
     navi:   buildSide(nCards),
     center: [[], []],
   };
-  return applySpit(seeded);
 }

@@ -6,6 +6,8 @@ import {
   applyMove,
   applySpit,
   applySlap,
+  applyEndgameSetup,
+  applyEndgameSlap,
   applyFillEmpty,
   canProductiveFill,
   deadlockWinner,
@@ -16,6 +18,7 @@ import {
   gameWinner,
   isTotallyStuck,
   legalMovesFor,
+  needsEndgameRound,
   pickFillSource,
   roundEnded,
   stockpilesEmpty,
@@ -23,6 +26,7 @@ import {
   type SpitState,
   type SideState,
   type Move,
+  type Side,
 } from './spitLogic';
 import { CardBack, CardFace } from './CardView';
 import { newCardBackSession } from '../watercolorEngine';
@@ -36,8 +40,17 @@ import { DEV_AUTOPLAY } from '../devAutoplay';
 // the human a fighting chance while still applying pressure.
 // Slower than before so the player has a real chance to find moves first.
 // Previous 1800-2800 still felt rushed on tight boards.
-const NAVI_MIN_DELAY = 2600;
-const NAVI_MAX_DELAY = 4000;
+const NAVI_MIN_DELAY = 1800;
+const NAVI_MAX_DELAY = 2800;
+
+// Burst mode — navi occasionally goes on a tear, playing cards at BURST_DELAY
+// speed for BURST_DURATION ms. Every BURST_CHECK_INTERVAL ms the AI rolls:
+// 30% chance normally, 60% if the player has no legal moves (pressure!).
+const BURST_CHECK_INTERVAL = 4000;
+const BURST_CHANCE_NORMAL  = 0.30;
+const BURST_CHANCE_PRESSED = 0.60;
+const BURST_DELAY          = 400;
+const BURST_DURATION       = 4000; // ms the burst window stays open
 
 // Feedback flash duration when the player drops on an illegal target.
 const FLASH_MS = 260;
@@ -81,10 +94,14 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   const [flashIdx, setFlashIdx] = useState<number | null>(null);
   const [naviHighlight, setNaviHighlight] = useState<Move | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
-  const [message, setMessage] = useState<string>('click start when you\'re ready');
+  const [message, setMessage] = useState<string>('click a spit deck to deal');
   // Whoever just cleared their stockpiles — ONLY they may claim a centre pile
   // during 'slap'. Null outside slap phase.
   const [slapperSide, setSlapperSide] = useState<'player' | 'navi' | null>(null);
+  // Endgame: the side that had 0 cards after a slap. They get 1 face-down
+  // card. If they play it → win. If the other side clears first → the
+  // other side gets 1 card, this side takes the big pile.
+  const [endgameWinner, setEndgameWinner] = useState<Side | null>(null);
   // DEV_AUTOPLAY — remove this line and the effect + button below to strip sim
   const [autoSim, setAutoSim] = useState(false);
   void setAutoSim;
@@ -98,8 +115,11 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { dragRef.current = drag; }, [drag]);
 
+  // Start the game by flipping the first spit card — triggered by clicking
+  // either spit deck or the spit button while idle.
   const handleStart = useCallback(() => {
     if (phaseRef.current !== 'idle') return;
+    setState((s) => applySpit(s));
     setPhase('playing');
     setMessage('');
   }, []);
@@ -107,32 +127,44 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   // Fresh watercolor back for every new game session.
   useEffect(() => { newCardBackSession(); }, []);
 
-  // Finish detection — three possible transitions from 'playing':
-  //   • Overall game over (one side has ZERO cards anywhere)   → 'gameover'
-  //   • One side cleared their stockpiles (round ends)         → 'slap'
-  //   • Otherwise: keep playing.
+  // Finish detection — possible transitions from 'playing':
+  //   • A side has 0 total cards (stockpiles + spit both empty) → 'gameover'
+  //     This is the standard Spit win condition: you played your last card.
+  //     Checked BEFORE roundEnded because stockpilesEmpty is also true when
+  //     sideTotal is 0, but a true-zero side should win outright (no slap).
+  //   • One side cleared stockpiles but still has spit cards    → 'slap'
+  //   • Unresolvable deadlock                                  → 'gameover'
   useEffect(() => {
     if (phase !== 'playing') return;
+
+    // A side played their last card — 0 cards anywhere → instant win.
     const gw = gameWinner(state);
     if (gw) {
       setPhase('gameover');
-      setMessage(gw === 'player' ? 'you ran navi out of cards — you win!' : 'navi ran you out of cards — you lose.');
+      setMessage(gw === 'player' ? 'you played your last card — you win!' : 'navi played her last card — you lose.');
       onEnd(gw === 'navi' ? 'win' : 'lose');
       return;
     }
+
     if (roundEnded(state)) {
-      // The side whose stockpiles are empty gets to claim. No race — the
-      // clearer takes whichever pile they want (smaller is usually better,
-      // but it's their choice and their own time).
       const playerCleared = stockpilesEmpty(state.player);
       const clearer: 'player' | 'navi' = playerCleared ? 'player' : 'navi';
       setSlapperSide(clearer);
       setPhase('slap');
-      setMessage(
-        playerCleared
-          ? 'you cleared — pick a centre pile to take'
-          : 'navi cleared — she\'s choosing a pile…',
-      );
+      if (endgameWinner) {
+        // During endgame, the loser cleared — automatic slap (no choice).
+        setMessage(
+          playerCleared
+            ? 'you cleared — slap to take the pile'
+            : 'navi cleared — reversing…',
+        );
+      } else {
+        setMessage(
+          playerCleared
+            ? 'you cleared — pick a centre pile to take'
+            : 'navi cleared — she\'s choosing a pile…',
+        );
+      }
       return;
     }
     // Unresolvable deadlock — totally stuck AND no spit cards. Nobody
@@ -149,7 +181,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       onEnd(winnerSide === 'navi' ? 'win' : 'lose');
       return;
     }
-  }, [state, phase, onEnd]);
+  }, [state, phase, endgameWinner, onEnd]);
 
   // ─── Interaction: click to play, drag to rearrange ────────────────────────
   // Two separate gestures, resolved on pointerup:
@@ -269,41 +301,78 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     setDrag((d) => (d && d.pointerId === ev.pointerId ? null : d));
   }, []);
 
-  // Manual spit — available ONLY when the board is totally stuck (no centre
-  // moves AND no fill-empty moves on either side). The button is the single
-  // trigger; there's no auto-spit timer.
+  // Manual spit — available when idle (first flip) or when the board is
+  // totally stuck. Clicking either spit deck or the spit button triggers it.
   const handleSpit = useCallback(() => {
+    if (phaseRef.current === 'idle') { handleStart(); return; }
     if (phaseRef.current !== 'playing') return;
     const s = stateRef.current;
     if (!isTotallyStuck(s) || !canAnySpit(s)) return;
     setState(applySpit(s));
     setMessage('');
+  }, [handleStart]);
+
+  // Shared post-slap transition: checks for endgame setup, game over, or
+  // continues to the next round.
+  const resolveSlap = useCallback((
+    nextState: SpitState,
+    slapper: 'player' | 'navi',
+    claimedSize: number,
+    otherSize: number,
+  ) => {
+    const got = claimedSize <= otherSize ? 'smaller' : 'larger';
+
+    // After redistribution, if one side has 0 cards → endgame round.
+    const egw = needsEndgameRound(nextState);
+    if (egw) {
+      const egState = applyEndgameSetup(nextState, egw);
+      setState(egState);
+      setSlapperSide(null);
+      setEndgameWinner(egw);
+      setPhase('idle');
+      setMessage(
+        egw === 'player'
+          ? 'you\'re down to 1 card — click spit to deal!'
+          : 'navi is down to 1 card — click spit to deal!',
+      );
+      return;
+    }
+
+    setState(nextState);
+    setSlapperSide(null);
+    setEndgameWinner(null);
+    setPhase('idle');
+    const sizeNote = slapper === 'player'
+      ? `you took the ${got} pile (+${claimedSize} cards). click spit to deal!`
+      : `navi took the ${got} pile (+${claimedSize} cards for navi). click spit to deal!`;
+    setMessage(sizeNote);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Player's slap — only fires when PLAYER is the clearer. No timer, no
-  // race: the clearer picks whichever centre pile they want at their own
-  // pace. Clicks while navi is the clearer are ignored (her own effect
-  // handles that case).
+  // Player's slap — only fires when PLAYER is the clearer.
   const handlePlayerSlap = useCallback((centerIdx: 0 | 1) => {
     if (phaseRef.current !== 'slap') return;
     if (slapperSide !== 'player') return;
     const s = stateRef.current;
+    if (endgameWinner) {
+      // Endgame slap: loser gets 1 card, winner takes the rest. No choice.
+      const nextState = applyEndgameSlap(s, endgameWinner, shuffle);
+      setState(nextState);
+      setSlapperSide(null);
+      // The former winner now has the big pile; the loser has 1 card.
+      // This may trigger another endgame (the loser now has 1 card after
+      // dealSide, which means sideTotal=1, not 0 — so needsEndgameRound
+      // won't fire). Go to idle for the next round.
+      setEndgameWinner(null);
+      setPhase('idle');
+      setMessage('endgame reversal — click spit to deal!');
+      return;
+    }
     const nextState = applySlap(s, 'player', centerIdx, shuffle);
     const pSize = s.center[centerIdx].length;
     const nSize = s.center[centerIdx === 0 ? 1 : 0].length;
-    const got   = pSize <= nSize ? 'smaller' : 'larger';
-    setState(nextState);
-    setSlapperSide(null);
-    const gw = gameWinner(nextState);
-    if (gw) {
-      setPhase('gameover');
-      setMessage(gw === 'player' ? 'you ran navi out of cards — you win!' : 'navi ran you out of cards — you lose.');
-      onEnd(gw === 'navi' ? 'win' : 'lose');
-      return;
-    }
-    setPhase('playing');
-    setMessage(`you took the ${got} pile (+${pSize} cards). new round!`);
-  }, [onEnd, slapperSide]);
+    resolveSlap(nextState, 'player', pSize, nSize);
+  }, [slapperSide, endgameWinner, resolveSlap]);
 
   // Navi's slap — only fires when NAVI is the clearer. She picks a pile as
   // a 50/50 coin flip (per user direction: she doesn't exploit knowing
@@ -316,33 +385,63 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     const t = window.setTimeout(() => {
       if (phaseRef.current !== 'slap') return;
       const s = stateRef.current;
+      if (endgameWinner) {
+        // Endgame slap: automatic — loser gets 1 card, winner takes rest.
+        const nextState = applyEndgameSlap(s, endgameWinner, shuffle);
+        setState(nextState);
+        setSlapperSide(null);
+        setEndgameWinner(null);
+        setPhase('idle');
+        setMessage('endgame reversal — click spit to deal!');
+        return;
+      }
       const choice: 0 | 1 = Math.random() < 0.5 ? 0 : 1;
       const nextState = applySlap(s, 'navi', choice, shuffle);
       const nSize = s.center[choice].length;
       const pSize = s.center[choice === 0 ? 1 : 0].length;
-      const got   = nSize <= pSize ? 'smaller' : 'larger';
-      setState(nextState);
-      setSlapperSide(null);
-      const gw = gameWinner(nextState);
-      if (gw) {
-        setPhase('gameover');
-        setMessage(gw === 'player' ? 'you ran navi out of cards — you win!' : 'navi ran you out of cards — you lose.');
-        onEnd(gw === 'navi' ? 'win' : 'lose');
-        return;
-      }
-      setPhase('playing');
-      setMessage(`navi took the ${got} pile (+${nSize} cards for navi). new round!`);
+      resolveSlap(nextState, 'navi', nSize, pSize);
     }, delay);
     return () => clearTimeout(t);
-  }, [phase, slapperSide, onEnd]);
+  }, [phase, slapperSide, endgameWinner, resolveSlap]);
 
   // Navi AI — one move per tick when it has a legal option. Uses refs so the
   // scheduler never goes stale across renders.
+  // Burst mode: every BURST_CHECK_INTERVAL ms navi rolls to enter a burst —
+  // a flurry of BURST_LENGTH moves at BURST_DELAY speed. The roll chance is
+  // higher (60%) when the player has no legal plays (pressure!).
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let burstUntil = 0;          // timestamp when current burst expires (0 = no burst)
+    let msSinceLastBurstCheck = 0;
+    let lastTickTime = Date.now();
+
+    const inBurst = () => Date.now() < burstUntil;
+
     const schedule = () => {
+      // If mid-burst, use the fast delay.
+      if (inBurst()) {
+        timer = setTimeout(tick, BURST_DELAY);
+        return;
+      }
       const delay = NAVI_MIN_DELAY + Math.random() * (NAVI_MAX_DELAY - NAVI_MIN_DELAY);
+
+      // Check whether enough time has elapsed to roll for a burst.
+      const now = Date.now();
+      msSinceLastBurstCheck += now - lastTickTime;
+      lastTickTime = now;
+      if (msSinceLastBurstCheck >= BURST_CHECK_INTERVAL) {
+        msSinceLastBurstCheck = 0;
+        const s = stateRef.current;
+        const playerHasMoves = legalMovesFor(s.player, s.center).length > 0;
+        const chance = playerHasMoves ? BURST_CHANCE_NORMAL : BURST_CHANCE_PRESSED;
+        if (Math.random() < chance) {
+          burstUntil = Date.now() + BURST_DURATION;
+          timer = setTimeout(tick, BURST_DELAY);
+          return;
+        }
+      }
+
       timer = setTimeout(tick, delay);
     };
     const tick = () => {
@@ -368,6 +467,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       // Priority 2: play a card to a centre pile.
       const moves = legalMovesFor(s.navi, s.center);
       if (moves.length === 0) {
+        burstUntil = 0; // nothing to play — end burst early
         schedule();
         return;
       }
@@ -403,9 +503,9 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     if (roundEnded(state) || gameWinner(state) != null) return; // another effect owns the message
     if (isTotallyStuck(state)) {
       if (canSpit(state)) {
-        setMessage('Deal a new card with SPIT');
+        setMessage('press SPIT to deal a new card');
       } else if (canAnySpit(state)) {
-        setMessage(`Deal a new card with SPIT`);
+        setMessage(`press SPIT to deal a new card`);
       } else {
         setMessage('Deadlock');
       }
@@ -450,7 +550,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
 
   // SPIT only lights up when the board is fully locked — no centre moves AND
   // no fill-empty moves on either side — and both reserves have a card.
-  const spitAvailable = phase === 'playing' && isTotallyStuck(state) && canAnySpit(state);
+  const spitAvailable = phase === 'idle' || (phase === 'playing' && isTotallyStuck(state) && canAnySpit(state));
 
   // While a drag is active, light up empty player slots — drag is only for
   // rearranging, so those are the sole drop targets.
@@ -511,7 +611,14 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
           className={styles['spit__center']}
           data-slap={phase === 'slap' && slapperSide === 'player' ? 'true' : 'false'}
         >
-          <div className={styles['spit__spit']} aria-label="navi spit reserve" data-owner="navi">
+          <div
+            className={styles['spit__spit']}
+            aria-label="navi spit reserve"
+            data-owner="navi"
+            data-clickable={spitAvailable ? 'true' : 'false'}
+            onClick={spitAvailable ? handleSpit : undefined}
+            style={spitAvailable ? { cursor: 'pointer' } : undefined}
+          >
             {state.navi.spit.length > 0 ? <CardBack /> : <EmptySlot label="—" />}
             <div className={styles['spit__spit-count']} data-owner="navi">
               spit
@@ -534,7 +641,14 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
             slappable={phase === 'slap' && slapperSide === 'player'}
             onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(1) : undefined}
           />
-          <div className={styles['spit__spit']} aria-label="player spit reserve" data-owner="player">
+          <div
+            className={styles['spit__spit']}
+            aria-label="player spit reserve"
+            data-owner="player"
+            data-clickable={spitAvailable ? 'true' : 'false'}
+            onClick={spitAvailable ? handleSpit : undefined}
+            style={spitAvailable ? { cursor: 'pointer' } : undefined}
+          >
             {state.player.spit.length > 0 ? <CardBack /> : <EmptySlot label="—" />}
             <div className={styles['spit__spit-count']} data-owner="player">
               spit
@@ -573,26 +687,14 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
             </button>
           )}
           */}
-          {phase === 'idle' && (
-            <button
-              type="button"
-              className={`${styles['spit__action']} ${styles['spit__action--primary']}`}
-              onClick={handleStart}
-              autoFocus
-            >
-              start
-            </button>
-          )}
-          {phase !== 'idle' && (
-            <button
-              type="button"
-              className={styles['spit__action']}
-              onClick={handleSpit}
-              disabled={!spitAvailable}
-            >
-              spit!
-            </button>
-          )}
+          <button
+            type="button"
+            className={`${styles['spit__action']}${phase === 'idle' ? ` ${styles['spit__action--primary']}` : ''}`}
+            onClick={handleSpit}
+            disabled={!spitAvailable}
+          >
+            spit!
+          </button>
         </div>
       </div>
 
