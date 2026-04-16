@@ -146,7 +146,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: '500mb-uploads',
         label: '500mb uploads',
-        description: 'My first project at Discord. Nitro subscribers were capped at 100MB uploads, so I migrated file storage from Discord\'s own infrastructure to Google Cloud Storage to push that to 500MB. Free users stay at 10MB; Nitro subscribers now get 50x that, enabling large video recordings, high-res assets, and game captures shared directly in chat.',
+        description: 'My first project at Discord. Nitro subscribers were capped at 100MB uploads, so I migrated file storage to push that to 500MB. Free users stay at 10MB; Nitro subscribers now get 50x that, enabling large video recordings, high-res assets, and game captures shared directly in chat.',
         skills: ['React', 'TypeScript', 'GCS'],
         assets: [
           '/work/discord/500mb-uploads/new.webp',
@@ -209,7 +209,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         label: 'document viewer',
         description: 'Built the raw document viewer used on LinkedIn Learning in its final, accessible form, enabling enterprises to upload custom documents for their org. Built framework-agnostic in vanilla JS. Adapted Mozilla\'s PDF.js to parse tagged PDFs as semantic HTML for screen readers. Co-authored the <a href="https://linkedin.com/blog/engineering/learning/under-the-hood-learning-with-documents" target="_blank" rel="noopener noreferrer">LinkedIn Engineering blog post</a> on the architecture. Nominated for LinkedIn\'s Engineering Award for Craftsmanship, one of 4 nominees out of 4,000+ engineers.',
         skills: ['Ember', 'Accessibility', 'JavaScript', 'Performance'],
-        leadership: ['Engineering Award nominee', 'Co-authored eng blog post', 'Cross-org a11y lead'],
+        leadership: ['Engineering Award Nominee', 'Technical Writing'],
         assets: [
           '/work/linkedin/document-viewer/1700688379926.webp',
           '/work/linkedin/document-viewer/1700688379965.webp',
