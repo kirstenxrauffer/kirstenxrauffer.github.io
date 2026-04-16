@@ -82,8 +82,8 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'custom-app-icons',
         label: 'custom app icons (mobile)',
         description: 'Nitro feature letting subscribers swap the Discord home screen icon from a curated library, including seasonal drops like Halloween. Launched September 2023 with ~20 icons. Advocated internally for users to keep their chosen icon even after Nitro expires. Intentionally built easter eggs to drive organic engagement and discovery: the Pirate icon randomizes its display name on every tap, and a hidden interaction on the settings page has yet to be publicly discovered. Strong adoption, making this one of our top perks that our team shipped.',
-        skills: ['React Native', 'iOS', 'TypeScript', 'UX Design'],
-        leadership: ['Cross-functional advocacy'],
+        skills: ['React Native', 'iOS', 'Android', 'Swift', 'Objective-C', 'Kotlin', 'TypeScript', 'Python', 'UX Design'],
+        leadership: [],
         assets: [
           '/work/discord/custom-app-icons/icon-options-preview.jpg',
           '/work/discord/custom-app-icons/new-icon-packs-preview.webp',
@@ -97,7 +97,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'custom-desktop-icons',
         label: 'custom desktop icons',
         description: 'Desktop-side implementation of Discord\'s custom app icon Nitro perk. Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, UX, and marketing; adapted mobile icon assets for desktop without support necessary from the core art team; shipped within 2 single sprints. Strong adoption, and a beloved perk.',
-        skills: ['React', 'Electron', 'TypeScript', 'UX Design'],
+        skills: ['React', 'TypeScript', 'Python', 'UX Design', 'Product Management'],
         leadership: ['Pitched to Head of Product', 'End-to-end ownership'],
         assets: [
           '/work/discord/custom-desktop-icons/blurple-twilight-desktop.webp',
@@ -126,7 +126,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'voice-channel-reactions',
         label: 'voice channel reactions',
         description: 'Real-time emoji reactions for voice and video calls. Tap an emoji and it animates across the call interface without unmuting. Nitro subscribers get animated cross-server emoji and full-screen scroll effects. Animations were built with Lottie, with the top colors extracted from each emoji and injected at runtime, keeping each animation fresh. Led the mobile implementation; one of the 2 devs who built this for desktop. Covered by Adweek: <a href="https://adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/" target="_blank" rel="noopener noreferrer">adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/</a>',
-        skills: ['React', 'TypeScript', 'Lottie', 'Real-time', 'Mobile'],
+        skills: ['React', 'TypeScript', 'Lottie', 'Python', 'iOS', 'Android', 'Swift', 'Objective-C', 'Kotlin', 'Mobile'],
         assets: [
           '/work/discord/voice-channel-reactions/voice-channel-reactions.gif',
           '/work/discord/voice-channel-reactions/hero.webp',
@@ -136,7 +136,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: 'entrance-sounds',
         label: 'entrance sounds',
         description: 'Nitro perk that auto-plays a Soundboard clip when you join a voice channel. The emoji infrastructure from Voice Channel Reactions was seamlessly extended: users pair an emoji with each entrance sound, and the emoji animates across the channel screen the moment they walk in. One of 2 devs who built this across web and mobile. <a href="https://discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds" target="_blank" rel="noopener noreferrer">discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds</a>',
-        skills: ['React', 'TypeScript', 'Lottie', 'Mobile', 'Audio UI'],
+        skills: ['React', 'TypeScript', 'Lottie', 'Python', 'iOS', 'Android', 'Swift', 'Objective-C', 'Kotlin', 'Mobile'],
         assets: [
           '/work/discord/entrance-sounds/entrance-sounds-tiktok.gif',
           '/work/discord/entrance-sounds/custom-sounds-anywhere.gif',
@@ -147,7 +147,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         slug: '500mb-uploads',
         label: '500mb uploads',
         description: 'My first project at Discord. Nitro subscribers were capped at 100MB uploads, so I migrated file storage from Discord\'s own infrastructure to Google Cloud Storage to push that to 500MB. Free users stay at 10MB; Nitro subscribers now get 50x that, enabling large video recordings, high-res assets, and game captures shared directly in chat.',
-        skills: ['Node.js', 'GCS', 'Back-end', 'Infrastructure'],
+        skills: ['React', 'TypeScript', 'GCS'],
         assets: [
           '/work/discord/500mb-uploads/new.webp',
           '/work/discord/500mb-uploads/old-womp.webp',
@@ -190,8 +190,8 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'pdp',
         label: 'product detail page',
-        description: 'Built the Frequently Bought Together feature on the PDP, which laid the groundwork for future teams to build Make It A Routine. Contributed to the development of the 2.0 delivery switcher component.',
-        skills: ['React', 'TypeScript', 'CSS'],
+        description: 'Built the "Frequently Bought Together" feature on the PDP, which laid the groundwork for future teams to build "Make It A Routine". Contributed to the development of the 2.0 delivery switcher component.',
+        skills: ['React', 'TypeScript', 'CSS', 'Accessibility'],
         assets: [
           '/work/ulta/pdp/frequently-bought-together.gif',
           '/work/ulta/pdp/delivery-picker.gif',
