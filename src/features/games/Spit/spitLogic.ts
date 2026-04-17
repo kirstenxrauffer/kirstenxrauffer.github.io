@@ -336,34 +336,43 @@ export function gameWinner(state: SpitState): Side | null {
 }
 
 /**
- * After a slap redistribution, check whether a side has 0 cards — meaning
- * we enter the endgame round. Returns the side that is "winning" (has 0
- * cards), or null if both still have cards.
+ * After a slap redistribution, check whether a side has no spit reserve
+ * (≤15 cards, all went to stockpiles). That side is "winning" — they're
+ * closest to clearing out — but they can't flip a spit card. One card is
+ * borrowed from the opponent to act as their face-down spit card.
+ *
+ * Returns the side that needs the endgame setup, or null if both sides
+ * have spit reserves.
  */
 export function needsEndgameRound(state: SpitState): Side | null {
-  if (sideTotal(state.player) === 0 && sideTotal(state.navi) > 0) return 'player';
-  if (sideTotal(state.navi)   === 0 && sideTotal(state.player) > 0) return 'navi';
+  const pEmpty = state.player.spit.length === 0;
+  const nEmpty = state.navi.spit.length === 0;
+  // If BOTH are out of spit, the normal stuck/deadlock logic handles it.
+  if (pEmpty && !nEmpty) return 'player';
+  if (nEmpty && !pEmpty) return 'navi';
   return null;
 }
 
 /**
- * Set up the endgame round. The winning side has 0 cards — they're done.
- * One face-down card from the loser is placed in the centre pile position
- * where the winner's spit would normally flip (centre[0] for player,
- * centre[1] for navi). The winner has NO stockpiles and NO spit — they
- * just watch. The loser plays normally trying to clear their stockpiles.
+ * Set up the endgame round. The winning side has stockpile cards but no
+ * spit reserve. One card is borrowed from the opponent and placed
+ * face-down in the centre at the winner's spit position (centre[0] for
+ * player, centre[1] for navi). Both sides play normally — the winner
+ * still has stockpile cards to clear.
  *
- * If the loser clears → they take the 1 face-down card, the winner takes
- * the big centre pile, and both redeal.
- * If deadlock → the winner wins (they had 0 cards).
+ * If the winner clears their stockpiles → they have 0 total cards → win.
+ * If the loser clears first → loser takes the 1 face-down card, winner
+ * takes the big centre pile, both redeal.
+ * If deadlock → fewer cards wins (winner likely wins).
  */
 export function applyEndgameSetup(
   state: SpitState,
   winningSide: Side,
-): SpitState {
+): { state: SpitState; facedownCard: Card } {
   const loser = winningSide === 'player' ? state.navi : state.player;
+  const winner = winningSide === 'player' ? state.player : state.navi;
 
-  // Take one card from the loser to place face-down in the centre.
+  // Borrow one card from the loser (opponent) for the face-down spit card.
   let card: Card;
   let newLoser: SideState;
   if (loser.spit.length > 0) {
@@ -382,22 +391,17 @@ export function applyEndgameSetup(
     newLoser = { ...loser, stockpiles: newPiles };
   }
 
-  // Winner has nothing — completely empty.
-  const winnerSide: SideState = {
-    stockpiles: [[], [], [], [], []],
-    spit: [],
-  };
-
-  // The face-down card sits in the centre pile position where the winner's
-  // spit would normally go: centre[0] for player, centre[1] for navi.
-  const center: [Card[], Card[]] = winningSide === 'player'
-    ? [[card], []]   // player's centre position gets the face-down card
-    : [[], [card]];  // navi's centre position gets the face-down card
-
+  // The face-down card is returned separately — it sits visually in the
+  // centre but is NOT part of the game state's center piles (so nobody
+  // can play onto it). The component tracks it and adds it back during
+  // the slap phase.
   return {
-    player: winningSide === 'player' ? winnerSide : newLoser,
-    navi:   winningSide === 'navi'   ? winnerSide : newLoser,
-    center,
+    state: {
+      player: winningSide === 'player' ? winner : newLoser,
+      navi:   winningSide === 'navi'   ? winner : newLoser,
+      center: [[], []] as [Card[], Card[]],
+    },
+    facedownCard: card,
   };
 }
 

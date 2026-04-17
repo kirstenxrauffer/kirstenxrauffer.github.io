@@ -98,10 +98,13 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   // Whoever just cleared their stockpiles — ONLY they may claim a centre pile
   // during 'slap'. Null outside slap phase.
   const [slapperSide, setSlapperSide] = useState<'player' | 'navi' | null>(null);
-  // Endgame: the side that had 0 cards after a slap. They get 1 face-down
-  // card. If they play it → win. If the other side clears first → the
-  // other side gets 1 card, this side takes the big pile.
+  // Endgame: the side whose spit reserve ran out after dealing. They
+  // borrow 1 face-down card from the opponent as their spit card.
   const [endgameWinner, setEndgameWinner] = useState<Side | null>(null);
+  // The borrowed face-down card — sits visually in the centre at the
+  // winner's spit position but is NOT in state.center (so nobody can
+  // play onto it). Added back to the pile during the slap.
+  const [facedownCard, setFacedownCard] = useState<Card | null>(null);
   // DEV_AUTOPLAY — remove this line and the effect + button below to strip sim
   const [autoSim, setAutoSim] = useState(false);
   void setAutoSim;
@@ -128,45 +131,37 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   useEffect(() => { newCardBackSession(); }, []);
 
   // Finish detection — possible transitions from 'playing':
-  //   • Normal round: a side reaches 0 total cards               → 'gameover'
+  //   • A side reaches 0 total cards (played their last card)     → 'gameover'
   //   • One side cleared stockpiles (round end)                   → 'slap'
-  //   • Endgame deadlock: loser can't clear → winner wins         → 'gameover'
-  //   • Normal deadlock                                           → 'gameover'
+  //   • Unresolvable deadlock                                     → 'gameover'
+  //
+  // In endgame rounds both sides still have stockpile cards — the winner
+  // just has no spit reserve. The same checks apply; if the winner clears
+  // their stockpiles they hit 0 total → gameWinner fires → they win.
+  // If the loser clears → roundEnded → endgame slap.
   useEffect(() => {
     if (phase !== 'playing') return;
 
-    // During an endgame round, the winner already has 0 cards (they sit
-    // and watch). Skip the gameWinner check — the winner's 0 is expected,
-    // not a win trigger. The round ends when the LOSER clears or deadlocks.
-    if (!endgameWinner) {
-      const gw = gameWinner(state);
-      if (gw) {
-        setPhase('gameover');
-        setMessage(gw === 'player' ? 'you played your last card — you win!' : 'navi played her last card — you lose.');
-        onEnd(gw === 'navi' ? 'win' : 'lose');
-        return;
-      }
+    const gw = gameWinner(state);
+    if (gw) {
+      setPhase('gameover');
+      setMessage(gw === 'player' ? 'you played your last card — you win!' : 'navi played her last card — you lose.');
+      onEnd(gw === 'navi' ? 'win' : 'lose');
+      return;
     }
 
     if (roundEnded(state)) {
-      // In endgame, the winner's stockpiles are already empty. We only
-      // care about the LOSER clearing. Check that the non-winner cleared.
+      const playerCleared = stockpilesEmpty(state.player);
+      const clearer: 'player' | 'navi' = playerCleared ? 'player' : 'navi';
+      setSlapperSide(clearer);
+      setPhase('slap');
       if (endgameWinner) {
-        const loserSide: 'player' | 'navi' = endgameWinner === 'player' ? 'navi' : 'player';
-        const loserCleared = stockpilesEmpty(state[loserSide]);
-        if (!loserCleared) return; // winner's empty stockpiles — expected, not a round end
-        setSlapperSide(loserSide);
-        setPhase('slap');
         setMessage(
-          loserSide === 'player'
+          clearer === 'player'
             ? 'you cleared — slap to take the pile'
             : 'navi cleared — reversing…',
         );
       } else {
-        const playerCleared = stockpilesEmpty(state.player);
-        const clearer: 'player' | 'navi' = playerCleared ? 'player' : 'navi';
-        setSlapperSide(clearer);
-        setPhase('slap');
         setMessage(
           playerCleared
             ? 'you cleared — pick a centre pile to take'
@@ -177,25 +172,14 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     }
 
     if (isDeadlock(state)) {
-      if (endgameWinner) {
-        // Endgame deadlock: loser couldn't clear → winner wins.
-        setPhase('gameover');
-        setMessage(
-          endgameWinner === 'player'
-            ? 'navi is stuck — you win!'
-            : 'you\'re stuck — navi wins.',
-        );
-        onEnd(endgameWinner === 'navi' ? 'win' : 'lose');
-      } else {
-        const winnerSide = deadlockWinner(state);
-        setPhase('gameover');
-        setMessage(
-          winnerSide === 'player'
-            ? 'deadlock — you had fewer cards, you win!'
-            : 'deadlock — navi had fewer cards, you lose.',
-        );
-        onEnd(winnerSide === 'navi' ? 'win' : 'lose');
-      }
+      const winnerSide = deadlockWinner(state);
+      setPhase('gameover');
+      setMessage(
+        winnerSide === 'player'
+          ? 'deadlock — you had fewer cards, you win!'
+          : 'deadlock — navi had fewer cards, you lose.',
+      );
+      onEnd(winnerSide === 'navi' ? 'win' : 'lose');
       return;
     }
   }, [state, phase, endgameWinner, onEnd]);
@@ -339,18 +323,19 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   ) => {
     const got = claimedSize <= otherSize ? 'smaller' : 'larger';
 
-    // After redistribution, if one side has 0 cards → endgame round.
+    // After redistribution, if one side has no spit reserve → endgame.
     const egw = needsEndgameRound(nextState);
     if (egw) {
-      const egState = applyEndgameSetup(nextState, egw);
+      const { state: egState, facedownCard: fd } = applyEndgameSetup(nextState, egw);
       setState(egState);
+      setFacedownCard(fd);
       setSlapperSide(null);
       setEndgameWinner(egw);
       setPhase('idle');
       setMessage(
         egw === 'player'
-          ? 'you\'re down to 1 card — click spit to deal!'
-          : 'navi is down to 1 card — click spit to deal!',
+          ? 'endgame — click spit to deal!'
+          : 'endgame — click spit to deal!',
       );
       return;
     }
@@ -358,6 +343,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     setState(nextState);
     setSlapperSide(null);
     setEndgameWinner(null);
+    setFacedownCard(null);
     setPhase('idle');
     const sizeNote = slapper === 'player'
       ? `you took the ${got} pile (+${claimedSize} cards). click spit to deal!`
@@ -366,30 +352,38 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Helper: run the endgame slap — loser gets 1 card (the face-down card),
+  // winner takes everything else. The face-down card must be included in
+  // the total pool since it's not in state.center.
+  const doEndgameSlap = useCallback((s: SpitState, egWinner: Side) => {
+    // Add the face-down card back into the pool before redistribution.
+    const withFacedown: SpitState = facedownCard
+      ? {
+          ...s,
+          center: egWinner === 'player'
+            ? [[...s.center[0], facedownCard], s.center[1]]
+            : [s.center[0], [...s.center[1], facedownCard]],
+        }
+      : s;
+    const nextState = applyEndgameSlap(withFacedown, egWinner, shuffle);
+    // The result goes through resolveSlap which may trigger another endgame.
+    resolveSlap(nextState, egWinner === 'player' ? 'navi' : 'player', 1, 0);
+  }, [facedownCard, resolveSlap]);
+
   // Player's slap — only fires when PLAYER is the clearer.
   const handlePlayerSlap = useCallback((centerIdx: 0 | 1) => {
     if (phaseRef.current !== 'slap') return;
     if (slapperSide !== 'player') return;
     const s = stateRef.current;
     if (endgameWinner) {
-      // Endgame slap: loser gets 1 card, winner takes the rest. No choice.
-      const nextState = applyEndgameSlap(s, endgameWinner, shuffle);
-      setState(nextState);
-      setSlapperSide(null);
-      // The former winner now has the big pile; the loser has 1 card.
-      // This may trigger another endgame (the loser now has 1 card after
-      // dealSide, which means sideTotal=1, not 0 — so needsEndgameRound
-      // won't fire). Go to idle for the next round.
-      setEndgameWinner(null);
-      setPhase('idle');
-      setMessage('endgame reversal — click spit to deal!');
+      doEndgameSlap(s, endgameWinner);
       return;
     }
     const nextState = applySlap(s, 'player', centerIdx, shuffle);
     const pSize = s.center[centerIdx].length;
     const nSize = s.center[centerIdx === 0 ? 1 : 0].length;
     resolveSlap(nextState, 'player', pSize, nSize);
-  }, [slapperSide, endgameWinner, resolveSlap]);
+  }, [slapperSide, endgameWinner, resolveSlap, doEndgameSlap]);
 
   // Navi's slap — only fires when NAVI is the clearer. She picks a pile as
   // a 50/50 coin flip (per user direction: she doesn't exploit knowing
@@ -403,13 +397,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       if (phaseRef.current !== 'slap') return;
       const s = stateRef.current;
       if (endgameWinner) {
-        // Endgame slap: automatic — loser gets 1 card, winner takes rest.
-        const nextState = applyEndgameSlap(s, endgameWinner, shuffle);
-        setState(nextState);
-        setSlapperSide(null);
-        setEndgameWinner(null);
-        setPhase('idle');
-        setMessage('endgame reversal — click spit to deal!');
+        doEndgameSlap(s, endgameWinner);
         return;
       }
       const choice: 0 | 1 = Math.random() < 0.5 ? 0 : 1;
@@ -419,7 +407,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       resolveSlap(nextState, 'navi', nSize, pSize);
     }, delay);
     return () => clearTimeout(t);
-  }, [phase, slapperSide, endgameWinner, resolveSlap]);
+  }, [phase, slapperSide, endgameWinner, resolveSlap, doEndgameSlap]);
 
   // Navi AI — one move per tick when it has a legal option. Uses refs so the
   // scheduler never goes stale across renders.
@@ -642,24 +630,40 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
               <span className={styles['spit__spit-count-num']}>{state.navi.spit.length}</span>
             </div>
           </div>
-          <CenterPile
-            pile={state.center[0]}
-            centerIdx={0}
-            highlight={naviHighlight?.centerIdx === 0}
-            // In endgame, centre[0] holds the face-down card when the player
-            // is the winner (their spit position). Show it face-down.
-            facedown={endgameWinner === 'player' && state.center[0].length === 1 && phase !== 'slap'}
-            slappable={phase === 'slap' && slapperSide === 'player'}
-            onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(0) : undefined}
-          />
-          <CenterPile
-            pile={state.center[1]}
-            centerIdx={1}
-            highlight={naviHighlight?.centerIdx === 1}
-            facedown={endgameWinner === 'navi' && state.center[1].length === 1 && phase !== 'slap'}
-            slappable={phase === 'slap' && slapperSide === 'player'}
-            onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(1) : undefined}
-          />
+          {/* Centre pile 0: player's spit position. During endgame where
+              player is the winner, show the face-down card here instead. */}
+          {endgameWinner === 'player' && facedownCard ? (
+            <div className={styles['spit__center-pile']}>
+              <div className={styles['spit__top']} style={{ zIndex: 1 }}>
+                <CardBack />
+              </div>
+            </div>
+          ) : (
+            <CenterPile
+              pile={state.center[0]}
+              centerIdx={0}
+              highlight={naviHighlight?.centerIdx === 0}
+              slappable={phase === 'slap' && slapperSide === 'player'}
+              onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(0) : undefined}
+            />
+          )}
+          {/* Centre pile 1: navi's spit position. During endgame where
+              navi is the winner, show the face-down card here instead. */}
+          {endgameWinner === 'navi' && facedownCard ? (
+            <div className={styles['spit__center-pile']}>
+              <div className={styles['spit__top']} style={{ zIndex: 1 }}>
+                <CardBack />
+              </div>
+            </div>
+          ) : (
+            <CenterPile
+              pile={state.center[1]}
+              centerIdx={1}
+              highlight={naviHighlight?.centerIdx === 1}
+              slappable={phase === 'slap' && slapperSide === 'player'}
+              onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(1) : undefined}
+            />
+          )}
           <div
             className={styles['spit__spit']}
             aria-label="player spit reserve"
@@ -896,14 +900,12 @@ function CenterPile({
   pile,
   centerIdx,
   highlight,
-  facedown = false,
   slappable = false,
   onSlap,
 }: {
   pile: Card[];
   centerIdx: 0 | 1;
   highlight: boolean;
-  facedown?: boolean;
   slappable?: boolean;
   onSlap?: () => void;
 }) {
@@ -931,7 +933,7 @@ function CenterPile({
         className={styles['spit__top']}
         style={{ zIndex: visibleUnder.length + 1 }}
       >
-        {top ? (facedown ? <CardBack /> : <CardFace card={top} />) : <EmptySlot label="—" />}
+        {top ? <CardFace card={top} /> : <EmptySlot label="—" />}
       </div>
     </>
   );
