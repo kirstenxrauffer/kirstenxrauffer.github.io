@@ -125,7 +125,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'voice-channel-reactions',
         label: 'voice channel reactions',
-        description: 'Real-time emoji reactions for voice and video calls. Tap an emoji and it animates across the call interface without unmuting. Nitro subscribers get animated cross-server emoji and full-screen scroll effects. Animations were built with Lottie, with the top colors extracted from each emoji and injected at runtime, keeping each animation fresh. Led the mobile implementation; one of the 2 devs who built this for desktop. Covered by Adweek: <a href="https://adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/" target="_blank" rel="noopener noreferrer">adweek.com/media/discord-how-to-use-voice-channel-reactions-on-desktop/</a>',
+        description: 'Real-time emoji reactions for voice and video calls. Tap an emoji and it animates across the call interface without unmuting. Nitro subscribers get animated cross-server emoji and full-screen scroll effects. Animations were built with Lottie, with the top colors extracted from each emoji and injected at runtime, keeping each animation fresh. Led the mobile implementation; one of the 2 devs who built this for desktop.',
         skills: ['React', 'TypeScript', 'Lottie', 'Python', 'iOS', 'Android', 'Swift', 'Objective-C', 'Kotlin', 'Mobile'],
         assets: [
           '/work/discord/voice-channel-reactions/voice-channel-reactions.gif',
