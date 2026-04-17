@@ -135,7 +135,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'entrance-sounds',
         label: 'entrance sounds',
-        description: 'Nitro perk that auto-plays a Soundboard clip when you join a voice channel. The emoji infrastructure from Voice Channel Reactions was seamlessly extended: users pair an emoji with each entrance sound, and the emoji animates across the channel screen the moment they walk in. One of 2 devs who built this across web and mobile.',
+        description: 'Nitro perk that auto-plays a Soundboard clip when you join a voice channel. The emoji infrastructure from Voice Channel Reactions was seamlessly extended: users pair an emoji with each entrance sound, and the emoji animates across the channel screen the moment they enter the chat. One of 2 devs who built this across web and mobile.',
         skills: ['React', 'TypeScript', 'Lottie', 'Python', 'iOS', 'Android', 'Swift', 'Objective-C', 'Kotlin', 'Mobile'],
         assets: [
           '/work/discord/entrance-sounds/entrance-sounds-tiktok.gif',
@@ -231,7 +231,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'learning',
         label: 'enterprise content',
-        description: 'Led projects giving enterprise admins the ability to upload their own content to LinkedIn Learning: documents, videos, learning paths, and collections. Personally drove the collaboration between LinkedIn Learning\'s consumer and enterprise surfaces, unifying shared components like cards through both process and code so both products stayed in sync. Earned Hackday Master by winning 5 global LinkedIn hackathons, one of which resulted in a US patent.',
+        description: 'Led projects giving enterprise admins the ability to upload their own content to LinkedIn Learning: documents, videos, learning paths, and collections. Personally drove the collaboration between LinkedIn Learning\'s consumer and enterprise surfaces, unifying shared components like cards through both process and code so both products stayed in sync. Earned Hackday Master by winning 5 global LinkedIn hackathons, one of which resulted in a U.S. patent.',
         skills: ['Ember', 'JavaScript'],
         leadership: ['5× Hackday Champion', 'US Patent holder'],
         assets: [
