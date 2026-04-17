@@ -21,7 +21,6 @@ import {
   needsEndgameRound,
   pickFillSource,
   roundEnded,
-  stockpilesEmpty,
   topOf,
   type SpitState,
   type SideState,
@@ -82,10 +81,10 @@ type DragState = {
 // 'gameover'— terminal; winner decided (one side has 0 total cards).
 type GamePhase = 'idle' | 'playing' | 'slap' | 'gameover';
 
-// Navi's reaction when SHE is the clearer — she picks a centre pile after a
-// brief pause. Still 50/50 per the earlier direction (ignores pile size).
-const NAVI_SLAP_MIN = 700;
-const NAVI_SLAP_MAX = 1600;
+// Navi's slap delay — she waits this long before slapping a centre pile.
+// Gives the human a head start since navi has perfect information.
+const NAVI_SLAP_MIN = 800;
+const NAVI_SLAP_MAX = 1800;
 
 export default function SpitGame({ onEnd, onClose }: GameProps) {
   const initial = useMemo<SpitState>(() => dealInitial(shuffle(makeDeck())), []);
@@ -95,9 +94,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   const [naviHighlight, setNaviHighlight] = useState<Move | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [message, setMessage] = useState<string>('click a spit deck to deal');
-  // Whoever just cleared their stockpiles — ONLY they may claim a centre pile
-  // during 'slap'. Null outside slap phase.
-  const [slapperSide, setSlapperSide] = useState<'player' | 'navi' | null>(null);
+  // (slapperSide removed — both sides now race to slap during 'slap' phase.)
   // Endgame: the side whose spit reserve ran out after dealing. They
   // borrow 1 face-down card from the opponent as their spit card.
   const [endgameWinner, setEndgameWinner] = useState<Side | null>(null);
@@ -151,23 +148,11 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     }
 
     if (roundEnded(state)) {
-      const playerCleared = stockpilesEmpty(state.player);
-      const clearer: 'player' | 'navi' = playerCleared ? 'player' : 'navi';
-      setSlapperSide(clearer);
+      // Both sides race to slap a centre pile. The player clicks a pile;
+      // navi slaps after a delay. Whoever is first gets their chosen pile.
+      
       setPhase('slap');
-      if (endgameWinner) {
-        setMessage(
-          clearer === 'player'
-            ? 'you cleared — slap to take the pile'
-            : 'navi cleared — reversing…',
-        );
-      } else {
-        setMessage(
-          playerCleared
-            ? 'you cleared — pick a centre pile to take'
-            : 'navi cleared — she\'s choosing a pile…',
-        );
-      }
+      setMessage('slap a pile!');
       return;
     }
 
@@ -329,7 +314,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       const { state: egState, facedownCard: fd } = applyEndgameSetup(nextState, egw);
       setState(egState);
       setFacedownCard(fd);
-      setSlapperSide(null);
+      
       setEndgameWinner(egw);
       setPhase('idle');
       setMessage(
@@ -341,7 +326,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     }
 
     setState(nextState);
-    setSlapperSide(null);
+    
     setEndgameWinner(null);
     setFacedownCard(null);
     setPhase('idle');
@@ -370,28 +355,26 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     resolveSlap(nextState, egWinner === 'player' ? 'navi' : 'player', 1, 0);
   }, [facedownCard, resolveSlap]);
 
-  // Player's slap — only fires when PLAYER is the clearer.
+  // Player slaps a centre pile — available any time during slap phase.
+  // Both sides race; whoever slaps first claims that pile.
   const handlePlayerSlap = useCallback((centerIdx: 0 | 1) => {
     if (phaseRef.current !== 'slap') return;
-    if (slapperSide !== 'player') return;
     const s = stateRef.current;
     if (endgameWinner) {
       doEndgameSlap(s, endgameWinner);
       return;
     }
+    // Player claims centerIdx; navi gets the other pile.
     const nextState = applySlap(s, 'player', centerIdx, shuffle);
     const pSize = s.center[centerIdx].length;
     const nSize = s.center[centerIdx === 0 ? 1 : 0].length;
     resolveSlap(nextState, 'player', pSize, nSize);
-  }, [slapperSide, endgameWinner, resolveSlap, doEndgameSlap]);
+  }, [endgameWinner, resolveSlap, doEndgameSlap]);
 
-  // Navi's slap — only fires when NAVI is the clearer. She picks a pile as
-  // a 50/50 coin flip (per user direction: she doesn't exploit knowing
-  // which is smaller). If the PLAYER cleared this effect no-ops, and the
-  // player has unlimited time to decide.
+  // Navi's slap — she races against the player after a slight delay.
+  // If the player slaps first (phase leaves 'slap'), navi's timer no-ops.
   useEffect(() => {
     if (phase !== 'slap') return;
-    if (slapperSide !== 'navi') return;
     const delay = NAVI_SLAP_MIN + Math.random() * (NAVI_SLAP_MAX - NAVI_SLAP_MIN);
     const t = window.setTimeout(() => {
       if (phaseRef.current !== 'slap') return;
@@ -407,7 +390,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       resolveSlap(nextState, 'navi', nSize, pSize);
     }, delay);
     return () => clearTimeout(t);
-  }, [phase, slapperSide, endgameWinner, resolveSlap, doEndgameSlap]);
+  }, [phase, endgameWinner, resolveSlap, doEndgameSlap]);
 
   // Navi AI — one move per tick when it has a legal option. Uses refs so the
   // scheduler never goes stale across renders.
@@ -525,7 +508,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
     if (!DEV_AUTOPLAY || !autoSim || phase === 'gameover') return;
     const t = window.setTimeout(() => {
       if (phase === 'idle') { handleStart(); return; }
-      if (phase === 'slap' && slapperSide === 'player') {
+      if (phase === 'slap') {
         handlePlayerSlap(Math.random() < 0.5 ? 0 : 1);
         return;
       }
@@ -540,7 +523,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [autoSim, phase, state, slapperSide, handleStart, handlePlayerSlap, playTopToCenter, handleSpit]);
+  }, [autoSim, phase, state, handleStart, handlePlayerSlap, playTopToCenter, handleSpit]);
 
   const playerLegal = useMemo(
     () => new Set(legalMovesFor(state.player, state.center).map((m) => m.pileIdx)),
@@ -614,7 +597,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
 
         <div
           className={styles['spit__center']}
-          data-slap={phase === 'slap' && slapperSide === 'player' ? 'true' : 'false'}
+          data-slap={phase === 'slap' ? 'true' : 'false'}
         >
           <div
             className={styles['spit__spit']}
@@ -643,8 +626,8 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
               pile={state.center[0]}
               centerIdx={0}
               highlight={naviHighlight?.centerIdx === 0}
-              slappable={phase === 'slap' && slapperSide === 'player'}
-              onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(0) : undefined}
+              slappable={phase === 'slap'}
+              onSlap={phase === 'slap' ? () => handlePlayerSlap(0) : undefined}
             />
           )}
           {/* Centre pile 1: navi's spit position. During endgame where
@@ -660,8 +643,8 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
               pile={state.center[1]}
               centerIdx={1}
               highlight={naviHighlight?.centerIdx === 1}
-              slappable={phase === 'slap' && slapperSide === 'player'}
-              onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(1) : undefined}
+              slappable={phase === 'slap'}
+              onSlap={phase === 'slap' ? () => handlePlayerSlap(1) : undefined}
             />
           )}
           <div
