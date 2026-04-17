@@ -135,7 +135,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'entrance-sounds',
         label: 'entrance sounds',
-        description: 'Nitro perk that auto-plays a Soundboard clip when you join a voice channel. The emoji infrastructure from Voice Channel Reactions was seamlessly extended: users pair an emoji with each entrance sound, and the emoji animates across the channel screen the moment they walk in. One of 2 devs who built this across web and mobile. <a href="https://discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds" target="_blank" rel="noopener noreferrer">discord.com/blog/how-to-use-the-discord-soundboard-add-more-sounds</a>',
+        description: 'Nitro perk that auto-plays a Soundboard clip when you join a voice channel. The emoji infrastructure from Voice Channel Reactions was seamlessly extended: users pair an emoji with each entrance sound, and the emoji animates across the channel screen the moment they walk in. One of 2 devs who built this across web and mobile.',
         skills: ['React', 'TypeScript', 'Lottie', 'Python', 'iOS', 'Android', 'Swift', 'Objective-C', 'Kotlin', 'Mobile'],
         assets: [
           '/work/discord/entrance-sounds/entrance-sounds-tiktok.gif',
