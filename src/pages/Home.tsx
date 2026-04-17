@@ -43,14 +43,14 @@ function Home() {
         <title>Kirsten Rauffer — Full-Stack Engineer</title>
         <meta
           name="description"
-          content="Full-stack engineer at the intersection of art and code. Portfolio of work from Discord, LinkedIn, Grainger, Ulta, and more."
+          content="Full-stack engineer."
         />
         <link rel="canonical" href="https://kirstenrauffer.com/" />
         <meta property="og:url" content="https://kirstenrauffer.com/" />
         <meta property="og:title" content="Kirsten Rauffer — Full-Stack Engineer" />
         <meta
           property="og:description"
-          content="Full-stack engineer at the intersection of art and code. Portfolio of work from Discord, LinkedIn, Grainger, Ulta, and more."
+          content="Full-stack engineer."
         />
         <script type="application/ld+json">{JSON.stringify(PERSON_JSONLD)}</script>
       </Helmet>
