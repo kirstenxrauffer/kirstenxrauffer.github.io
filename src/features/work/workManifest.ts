@@ -266,7 +266,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
       {
         slug: 'neptun',
         label: 'neptun',
-        description: 'iOS diabetes management app built for Roche, now operated by Linova. Logs blood glucose, insulin, and nutrition, with Bluetooth sync to Accu-Chek meters, Apple Watch support, and a rule-based coaching engine. Started as a proof-of-concept through TU Munich (Praktikum) and still ships today in its original form, including the original charts and icons. Designed the entire UI and all iconography, built the interface from scratch in Swift, and assisted with the Bluetooth LE integration for syncing patient data from Accu-Chek glucose monitors.',
+        description: 'iOS diabetes management app built for Roche, now operated by Linova. Logs blood glucose, insulin, and nutrition, with Bluetooth sync to Accu-Chek meters and Apple Watch support. Started as a proof-of-concept through TU Munich (Praktikum) and still ships today in its original form, including the original charts and icons. Designed the entire UI and all iconography, built the interface from scratch in Swift, and assisted with the Bluetooth LE integration for syncing patient data from Accu-Chek glucose monitors.',
         skills: ['Swift', 'iOS', 'BLE', 'HealthKit', 'Apple Watch'],
         assets: [
           '/work/roche/neptun/overview.webp',
