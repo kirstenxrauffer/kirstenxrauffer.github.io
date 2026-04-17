@@ -98,7 +98,7 @@ export const WORK_MANIFEST: CompanyWork[] = [
         label: 'custom desktop icons',
         description: 'Desktop-side implementation of Discord\'s custom app icon Nitro perk. Pitched directly to head of product while the team was down a PM and designer. Owned the full feature end-to-end: designed the settings UI, UX, and marketing; adapted mobile icon assets for desktop without support necessary from the core art team; shipped within 2 single sprints. Strong adoption, and a beloved perk.',
         skills: ['React', 'TypeScript', 'Python', 'UX Design', 'Product Management'],
-        leadership: ['Pitched to Head of Product', 'End-to-end ownership'],
+        leadership: [],
         assets: [
           '/work/discord/custom-desktop-icons/blurple-twilight-desktop.webp',
           '/work/discord/custom-desktop-icons/icon-options-preview.jpg',
