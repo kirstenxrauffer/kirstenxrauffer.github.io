@@ -128,23 +128,27 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   useEffect(() => { newCardBackSession(); }, []);
 
   // Finish detection — possible transitions from 'playing':
-  //   • A side reaches 0 total cards (played their last card)     → 'gameover'
+  //   • Endgame winner clears (0 total, no spit to slap)          → 'gameover'
   //   • One side cleared stockpiles (round end)                   → 'slap'
   //   • Unresolvable deadlock                                     → 'gameover'
   //
-  // In endgame rounds both sides still have stockpile cards — the winner
-  // just has no spit reserve. The same checks apply; if the winner clears
-  // their stockpiles they hit 0 total → gameWinner fires → they win.
-  // If the loser clears → roundEnded → endgame slap.
+  // In NORMAL rounds, reaching 0 total cards always goes through slap
+  // first — the side still needs to pick up a centre pile. The game only
+  // ends outright when the endgame winner clears (they have no spit pile,
+  // and their centre position holds the face-down card, not a real pile).
   useEffect(() => {
     if (phase !== 'playing') return;
 
-    const gw = gameWinner(state);
-    if (gw) {
-      setPhase('gameover');
-      setMessage(gw === 'player' ? 'you played your last card — you win!' : 'navi played her last card — you lose.');
-      onEnd(gw === 'navi' ? 'win' : 'lose');
-      return;
+    // Endgame instant win: the winning side (no spit reserve) cleared
+    // their stockpiles → 0 total cards → they win. No slap needed.
+    if (endgameWinner) {
+      const gw = gameWinner(state);
+      if (gw === endgameWinner) {
+        setPhase('gameover');
+        setMessage(gw === 'player' ? 'you played your last card — you win!' : 'navi played her last card — you lose.');
+        onEnd(gw === 'navi' ? 'win' : 'lose');
+        return;
+      }
     }
 
     if (roundEnded(state)) {
