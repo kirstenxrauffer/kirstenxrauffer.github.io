@@ -128,37 +128,45 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
   useEffect(() => { newCardBackSession(); }, []);
 
   // Finish detection — possible transitions from 'playing':
-  //   • A side has 0 total cards (stockpiles + spit both empty) → 'gameover'
-  //     This is the standard Spit win condition: you played your last card.
-  //     Checked BEFORE roundEnded because stockpilesEmpty is also true when
-  //     sideTotal is 0, but a true-zero side should win outright (no slap).
-  //   • One side cleared stockpiles but still has spit cards    → 'slap'
-  //   • Unresolvable deadlock                                  → 'gameover'
+  //   • Normal round: a side reaches 0 total cards               → 'gameover'
+  //   • One side cleared stockpiles (round end)                   → 'slap'
+  //   • Endgame deadlock: loser can't clear → winner wins         → 'gameover'
+  //   • Normal deadlock                                           → 'gameover'
   useEffect(() => {
     if (phase !== 'playing') return;
 
-    // A side played their last card — 0 cards anywhere → instant win.
-    const gw = gameWinner(state);
-    if (gw) {
-      setPhase('gameover');
-      setMessage(gw === 'player' ? 'you played your last card — you win!' : 'navi played her last card — you lose.');
-      onEnd(gw === 'navi' ? 'win' : 'lose');
-      return;
+    // During an endgame round, the winner already has 0 cards (they sit
+    // and watch). Skip the gameWinner check — the winner's 0 is expected,
+    // not a win trigger. The round ends when the LOSER clears or deadlocks.
+    if (!endgameWinner) {
+      const gw = gameWinner(state);
+      if (gw) {
+        setPhase('gameover');
+        setMessage(gw === 'player' ? 'you played your last card — you win!' : 'navi played her last card — you lose.');
+        onEnd(gw === 'navi' ? 'win' : 'lose');
+        return;
+      }
     }
 
     if (roundEnded(state)) {
-      const playerCleared = stockpilesEmpty(state.player);
-      const clearer: 'player' | 'navi' = playerCleared ? 'player' : 'navi';
-      setSlapperSide(clearer);
-      setPhase('slap');
+      // In endgame, the winner's stockpiles are already empty. We only
+      // care about the LOSER clearing. Check that the non-winner cleared.
       if (endgameWinner) {
-        // During endgame, the loser cleared — automatic slap (no choice).
+        const loserSide: 'player' | 'navi' = endgameWinner === 'player' ? 'navi' : 'player';
+        const loserCleared = stockpilesEmpty(state[loserSide]);
+        if (!loserCleared) return; // winner's empty stockpiles — expected, not a round end
+        setSlapperSide(loserSide);
+        setPhase('slap');
         setMessage(
-          playerCleared
+          loserSide === 'player'
             ? 'you cleared — slap to take the pile'
             : 'navi cleared — reversing…',
         );
       } else {
+        const playerCleared = stockpilesEmpty(state.player);
+        const clearer: 'player' | 'navi' = playerCleared ? 'player' : 'navi';
+        setSlapperSide(clearer);
+        setPhase('slap');
         setMessage(
           playerCleared
             ? 'you cleared — pick a centre pile to take'
@@ -167,18 +175,27 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
       }
       return;
     }
-    // Unresolvable deadlock — totally stuck AND no spit cards. Nobody
-    // cleared so slap doesn't apply; fall back to a card-count tiebreak.
-    // Fewer cards wins (closer to clearing the deck). Ties favour the human.
+
     if (isDeadlock(state)) {
-      const winnerSide = deadlockWinner(state);
-      setPhase('gameover');
-      setMessage(
-        winnerSide === 'player'
-          ? 'deadlock — you had fewer cards, you win!'
-          : 'deadlock — navi had fewer cards, you lose.',
-      );
-      onEnd(winnerSide === 'navi' ? 'win' : 'lose');
+      if (endgameWinner) {
+        // Endgame deadlock: loser couldn't clear → winner wins.
+        setPhase('gameover');
+        setMessage(
+          endgameWinner === 'player'
+            ? 'navi is stuck — you win!'
+            : 'you\'re stuck — navi wins.',
+        );
+        onEnd(endgameWinner === 'navi' ? 'win' : 'lose');
+      } else {
+        const winnerSide = deadlockWinner(state);
+        setPhase('gameover');
+        setMessage(
+          winnerSide === 'player'
+            ? 'deadlock — you had fewer cards, you win!'
+            : 'deadlock — navi had fewer cards, you lose.',
+        );
+        onEnd(winnerSide === 'navi' ? 'win' : 'lose');
+      }
       return;
     }
   }, [state, phase, endgameWinner, onEnd]);
@@ -629,8 +646,9 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
             pile={state.center[0]}
             centerIdx={0}
             highlight={naviHighlight?.centerIdx === 0}
-            // Only the player-slapper sees the glowing invite + click target;
-            // when navi is the clearer the piles stay passive as she picks.
+            // In endgame, centre[0] holds the face-down card when the player
+            // is the winner (their spit position). Show it face-down.
+            facedown={endgameWinner === 'player' && state.center[0].length === 1 && phase !== 'slap'}
             slappable={phase === 'slap' && slapperSide === 'player'}
             onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(0) : undefined}
           />
@@ -638,6 +656,7 @@ export default function SpitGame({ onEnd, onClose }: GameProps) {
             pile={state.center[1]}
             centerIdx={1}
             highlight={naviHighlight?.centerIdx === 1}
+            facedown={endgameWinner === 'navi' && state.center[1].length === 1 && phase !== 'slap'}
             slappable={phase === 'slap' && slapperSide === 'player'}
             onSlap={phase === 'slap' && slapperSide === 'player' ? () => handlePlayerSlap(1) : undefined}
           />
@@ -877,12 +896,14 @@ function CenterPile({
   pile,
   centerIdx,
   highlight,
+  facedown = false,
   slappable = false,
   onSlap,
 }: {
   pile: Card[];
   centerIdx: 0 | 1;
   highlight: boolean;
+  facedown?: boolean;
   slappable?: boolean;
   onSlap?: () => void;
 }) {
@@ -910,7 +931,7 @@ function CenterPile({
         className={styles['spit__top']}
         style={{ zIndex: visibleUnder.length + 1 }}
       >
-        {top ? <CardFace card={top} /> : <EmptySlot label="—" />}
+        {top ? (facedown ? <CardBack /> : <CardFace card={top} />) : <EmptySlot label="—" />}
       </div>
     </>
   );

@@ -112,23 +112,19 @@ export function applySpit(state: SpitState): SpitState {
   const naviHas   = nSpit.length > 0;
 
   if (playerHas && naviHas) {
+    // Both sides flip — two centre piles.
     c0 = [...c0, pSpit[pSpit.length - 1]];
     c1 = [...c1, nSpit[nSpit.length - 1]];
     pSpit = pSpit.slice(0, -1);
     nSpit = nSpit.slice(0, -1);
   } else if (playerHas) {
-    // Player covers both centres from their reserve.
-    const a = pSpit[pSpit.length - 1];
-    const b = pSpit.length >= 2 ? pSpit[pSpit.length - 2] : undefined;
-    c0 = [...c0, a];
-    if (b) c1 = [...c1, b];
-    pSpit = pSpit.slice(0, b ? -2 : -1);
+    // Only player has spit — one centre pile only.
+    c0 = [...c0, pSpit[pSpit.length - 1]];
+    pSpit = pSpit.slice(0, -1);
   } else if (naviHas) {
-    const a = nSpit[nSpit.length - 1];
-    const b = nSpit.length >= 2 ? nSpit[nSpit.length - 2] : undefined;
-    c1 = [...c1, a];
-    if (b) c0 = [...c0, b];
-    nSpit = nSpit.slice(0, b ? -2 : -1);
+    // Only navi has spit — one centre pile only.
+    c1 = [...c1, nSpit[nSpit.length - 1]];
+    nSpit = nSpit.slice(0, -1);
   }
 
   return {
@@ -351,9 +347,15 @@ export function needsEndgameRound(state: SpitState): Side | null {
 }
 
 /**
- * Set up the endgame round. The winning side (0 cards) receives exactly 1
- * face-down card taken from the opponent. That single card goes into the
- * winner's first stockpile slot. Centre piles stay empty — spit starts it.
+ * Set up the endgame round. The winning side has 0 cards — they're done.
+ * One face-down card from the loser is placed in the centre pile position
+ * where the winner's spit would normally flip (centre[0] for player,
+ * centre[1] for navi). The winner has NO stockpiles and NO spit — they
+ * just watch. The loser plays normally trying to clear their stockpiles.
+ *
+ * If the loser clears → they take the 1 face-down card, the winner takes
+ * the big centre pile, and both redeal.
+ * If deadlock → the winner wins (they had 0 cards).
  */
 export function applyEndgameSetup(
   state: SpitState,
@@ -361,7 +363,7 @@ export function applyEndgameSetup(
 ): SpitState {
   const loser = winningSide === 'player' ? state.navi : state.player;
 
-  // Take one card from the loser's spit reserve, or largest stockpile.
+  // Take one card from the loser to place face-down in the centre.
   let card: Card;
   let newLoser: SideState;
   if (loser.spit.length > 0) {
@@ -380,15 +382,22 @@ export function applyEndgameSetup(
     newLoser = { ...loser, stockpiles: newPiles };
   }
 
+  // Winner has nothing — completely empty.
   const winnerSide: SideState = {
-    stockpiles: [[card], [], [], [], []],
+    stockpiles: [[], [], [], [], []],
     spit: [],
   };
+
+  // The face-down card sits in the centre pile position where the winner's
+  // spit would normally go: centre[0] for player, centre[1] for navi.
+  const center: [Card[], Card[]] = winningSide === 'player'
+    ? [[card], []]   // player's centre position gets the face-down card
+    : [[], [card]];  // navi's centre position gets the face-down card
 
   return {
     player: winningSide === 'player' ? winnerSide : newLoser,
     navi:   winningSide === 'navi'   ? winnerSide : newLoser,
-    center: [[], []],
+    center,
   };
 }
 
