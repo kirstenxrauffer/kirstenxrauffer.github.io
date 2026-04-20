@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import './NavMenu.css';
 
@@ -22,7 +22,6 @@ type TopItem = { id: string; label: string; href?: string; hasSub?: boolean };
 
 const BASE_NAV_ITEMS: TopItem[] = [
   // { id: 'services', label: 'services', hasSub: true },
-  { id: 'work',     label: 'work',     hasSub: true },
   { id: 'about',    label: 'about',    href: '/about' },
   { id: 'contact',  label: 'contact',  href: '/contact' },
 ];
@@ -71,12 +70,16 @@ export default function NavMenu({
   const [subKey, setSubKey]       = useState(0);
   const [navHovered, setNavHovered] = useState(false);
   const btnRefs               = useRef<Record<string, HTMLButtonElement | null>>({});
-  const { pathname }          = useLocation();
+  const { pathname, search }  = useLocation();
+  const showWork = useMemo(() => new URLSearchParams(search).get('work') === 'true', [search]);
 
   const currentId = PATH_TO_ID[pathname] ?? null;
-  const navItems: TopItem[] = currentId
-    ? BASE_NAV_ITEMS.map(item => item.id === currentId ? HOME_ITEM : item)
+  const allItems = showWork
+    ? [{ id: 'work', label: 'work', hasSub: true } as TopItem, ...BASE_NAV_ITEMS]
     : BASE_NAV_ITEMS;
+  const navItems: TopItem[] = currentId
+    ? allItems.map(item => item.id === currentId ? HOME_ITEM : item)
+    : allItems;
 
   const toggle = useCallback((id: string) => {
     setOpenSub(prev => {
