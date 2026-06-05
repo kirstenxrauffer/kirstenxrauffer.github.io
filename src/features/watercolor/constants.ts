@@ -5,11 +5,9 @@
 export const HERO_IMAGES = [
   '/images/IMG_1567.jpg',
   '/images/IMG_1941.jpg',
-  '/images/IMG_2406.jpg',
   '/images/IMG_4597.jpg',
   '/images/IMG_4607.jpg',
   '/images/IMG_5002.jpg',
-  '/images/IMG_5004.jpg',
   '/images/IMG_5007.jpg',
   '/images/IMG_5009.jpg',
   '/images/IMG_5010.jpg',
