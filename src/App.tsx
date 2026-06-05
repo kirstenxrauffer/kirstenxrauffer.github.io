@@ -68,49 +68,66 @@ function App() {
   const routesInnerRef  = useRef<HTMLDivElement>(null);
   const location        = useLocation();
 
-  // Measure the routed content height and push it to --section-h on the outer
-  // wrapper so the nav can position itself via a transitioned translateY.
-  // Using `top: calc(100% + 8px)` doesn't transition — 100% resolves against
-  // the parent's computed height which jumps instantly on route swap. Driving
-  // a transform off a CSS variable lets the transition on .nav-menu interpolate
-  // the new offset smoothly.
-  // Apply --section-h = measured content height (in px). Ignores 0-height
-  // frames so the lazy-route Suspense fallback never drags the nav through 0.
+  // targetHRef: the destination height in px (updated synchronously).
+  // animHRef:   the currently-rendered value (null until first measurement).
+  // The rAF loop below lerps animH → targetH and writes --section-h each frame,
+  // giving a JS-driven ease-out instead of a CSS transition.
+  const targetHRef = useRef<number>(0);
+  const animHRef   = useRef<number | null>(null);
+
   const applySectionHeight = useCallback(() => {
     const inner = routesInnerRef.current;
     const outer = routesRef.current;
     if (!inner || !outer) return;
     const h = inner.offsetHeight;
     if (h === 0) return;
-    outer.style.setProperty('--section-h', `${h}px`);
+    targetHRef.current = h;
+    // First measurement: snap without animation so the nav lands immediately.
+    if (animHRef.current === null) {
+      animHRef.current = h;
+      outer.style.setProperty('--section-h', `${h}px`);
+    }
   }, []);
 
-  // Initial measurement + ResizeObserver for ambient height changes (window
-  // resize, font swap, etc). Transition is gated until after the first
-  // measurement commits so the page-load paint doesn't animate 0 → measured.
+  // Initial measurement + ResizeObserver for ambient height changes.
   useLayoutEffect(() => {
     const inner = routesInnerRef.current;
-    const outer = routesRef.current;
-    if (!inner || !outer) return;
+    if (!inner) return;
     applySectionHeight();
-    const raf = requestAnimationFrame(() => {
-      outer.dataset.navReady = 'true';
-    });
     const ro = new ResizeObserver(applySectionHeight);
     ro.observe(inner);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
+    return () => ro.disconnect();
   }, [applySectionHeight]);
 
-  // Re-measure synchronously on every route change, BEFORE the browser
-  // paints. ResizeObserver is async and fires after one paint frame — that
-  // frame briefly shows the new route's content with the old route's
-  // --section-h, which is the "nav appears too low/high then snaps" flash.
+  // Re-measure synchronously on every route change, BEFORE the browser paints.
   useLayoutEffect(() => {
     applySectionHeight();
   }, [location.pathname, applySectionHeight]);
+
+  // Lerp animH → targetH at ~2× speed (k=2 s⁻¹ → 99% done in ~2.3 s),
+  // matching the ease-out character of the old CSS cubic-bezier(0.2,0.8,0.2,1).
+  useEffect(() => {
+    let raf = 0;
+    let lastT = performance.now();
+    const tick = (t: number) => {
+      const outer = routesRef.current;
+      if (outer && animHRef.current !== null) {
+        const dt    = Math.min((t - lastT) / 1000, 0.05);
+        lastT = t;
+        const diff  = targetHRef.current - animHRef.current;
+        if (Math.abs(diff) > 0.05) {
+          animHRef.current += diff * Math.min(1, 2 * dt);
+          outer.style.setProperty('--section-h', `${animHRef.current}px`);
+        } else if (diff !== 0) {
+          animHRef.current = targetHRef.current;
+          outer.style.setProperty('--section-h', `${animHRef.current}px`);
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const [navOpen, setNavOpen] = useState(false);
   const [palette, setPalette] = useState<string[]>([]);
