@@ -23,7 +23,7 @@ function About() {
       </Helmet>
       <WaveText as="h1" variant="scatter" text="kirsten rauffer" delay={0} />
       <WaveText as="p" variant="drift" text="a jersey girl in chicago" delay={GAP} />
-      <WaveText as="p" variant="drift" text="i love my 3 catds, buffalo wings, and beaches" delay={GAP * 2} />
+      <WaveText as="p" variant="drift" text="i love my 3 cats, buffalo wings, and beaches" delay={GAP * 2} />
       <WaveText as="p" variant="drift" text="rainy days, are simply my favorite" delay={GAP * 3} />
 
       <WaveText as="p" variant="drift" text={`".'♬(✿˘‿˘✿)♪':"`} delay={GAP * 4} className={styles.spaced} />
