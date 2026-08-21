@@ -22,20 +22,19 @@ function About() {
         />
       </Helmet>
       <WaveText as="h1" variant="scatter" text="kirsten rauffer" delay={0} />
-      <WaveText as="p" variant="drift" text="a jersey girl at heart!" delay={GAP} />
-      <WaveText as="p" variant="drift" text="i love my buffalo wings and beaches." delay={GAP * 2} />
-      <WaveText as="p" variant="drift" text="i have 3 cats and a fiancé whom i love very much. " delay={GAP * 3} />
-      <WaveText as="p" variant="drift" text="rainy days, are simply my favorite" delay={GAP * 4} />
+      <WaveText as="p" variant="drift" text="a jersey girl in chicago" delay={GAP} />
+      <WaveText as="p" variant="drift" text="i love my 3 catds, buffalo wings, and beaches" delay={GAP * 2} />
+      <WaveText as="p" variant="drift" text="rainy days, are simply my favorite" delay={GAP * 3} />
 
-      <WaveText as="p" variant="drift" text={`".'♬(✿˘‿˘✿)♪':"`} delay={GAP * 5} className={styles.spaced} />
+      <WaveText as="p" variant="drift" text={`".'♬(✿˘‿˘✿)♪':"`} delay={GAP * 4} className={styles.spaced} />
 
-      <WaveText as="p" variant="drift" text="i'm happiest when art and code" delay={GAP * 7} />
-      <WaveText as="p" variant="drift" text="can't quite tell themselves apart." delay={GAP * 8} />
-      <WaveText as="p" variant="drift" text="i've tended projects, from brainstorms of ideas to reality" delay={GAP * 9} />
-      <WaveText as="p" variant="drift" text="solo, among friends, and while leading others." delay={GAP * 10} />
-      <WaveText as="p" variant="drift" text="reach out if you'd like to make something together," delay={GAP * 11} />
-      <WaveText as="p" variant="drift" text="or if you just want someone" delay={GAP * 12} />
-      <WaveText as="p" variant="drift" text="to say hi to!" delay={GAP * 13} />
+      <WaveText as="p" variant="drift" text="i'm happiest when art and code" delay={GAP * 5} />
+      <WaveText as="p" variant="drift" text="can't quite tell themselves apart." delay={GAP * 6} />
+      <WaveText as="p" variant="drift" text="i've tended projects, from brainstorms of ideas to reality" delay={GAP * 7} />
+      <WaveText as="p" variant="drift" text="solo, among friends, among colleagues" delay={GAP * 8} />
+      <WaveText as="p" variant="drift" text="reach out if you'd like to make something together," delay={GAP * 9} />
+      <WaveText as="p" variant="drift" text="or if you just want someone" delay={GAP * 10} />
+      <WaveText as="p" variant="drift" text="to say hi to!" delay={GAP * 11} />
     </section>
   );
 }
