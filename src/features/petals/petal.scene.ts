@@ -18,8 +18,10 @@ const CAM_FOV  = 50;
 const CAM_Z    = 100;
 const CAM_Y    = 22;
 
-// Petals wait this many seconds before appearing, then fade in over FADE_IN seconds
-const PETAL_DELAY   = 3.5;
+// Petals fade in over FADE_IN seconds once start() is called by the host scene.
+// The previous PETAL_DELAY constant has been replaced with an explicit start()
+// trigger so petals begin precisely when the watercolor reveal tween finishes,
+// not at a hard-coded offset.
 const PETAL_FADE_IN = 2.5;
 
 export class PetalScene {
@@ -29,6 +31,9 @@ export class PetalScene {
   private paletteTexture: THREE.DataTexture;
   private disposed = false;
   private loaded   = false;
+  // Set by start() — elapsed-time origin for petal animation. Until start()
+  // is called, update() is a no-op and petals are invisible.
+  private startedAt: number | null = null;
 
   // Render target — sampled by the watercolor composite as uPetals
   readonly rt: THREE.WebGLRenderTarget;
@@ -180,12 +185,22 @@ export class PetalScene {
     return this.loaded ? this.rt.texture : this.fallback;
   }
 
+  // Trigger the petal animation. Idempotent — first call wins. `elapsedAtStart`
+  // is the host's elapsed time at the moment petals should begin, which becomes
+  // the zero-point for the shader so birth-time offsets stay coherent across
+  // pause/resize/etc. relative to the same clock that feeds update().
+  start(elapsedAtStart: number): void {
+    if (this.startedAt !== null || this.disposed) return;
+    this.startedAt = elapsedAtStart;
+  }
+
   // Call once per frame before the composite pass
   update(elapsed: number, renderer: THREE.WebGLRenderer): void {
     if (!this.loaded || this.disposed) return;
+    if (this.startedAt === null) return;
 
-    // Hold until PETAL_DELAY seconds have passed, then fade in over PETAL_FADE_IN seconds
-    const shaderTime = elapsed - PETAL_DELAY;
+    // Time since petals started; fade in over PETAL_FADE_IN seconds.
+    const shaderTime = elapsed - this.startedAt;
     if (shaderTime < 0) return;
 
     // uTime starts at 0 when petals first appear so birth-time offsets are correct

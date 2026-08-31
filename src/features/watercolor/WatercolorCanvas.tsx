@@ -208,23 +208,29 @@ export default function WatercolorCanvas({
       gsap.to(progressObj, {
         value: REVEAL_PROGRESS_TARGET,
         duration: REVEAL_DURATION,
+        delay: 0.5,  // brief beat after page paint before the reveal begins
         ease: 'power2.out',
         onUpdate: () => { passUniforms.uProgress.value = progressObj.value; },
+        // Petals begin only after the full reveal animation lands. Triggering
+        // from onComplete (rather than a hard-coded offset) means future tuning
+        // of REVEAL_DURATION / clear-bloom timing automatically carries through.
+        onComplete: () => { if (!disposed) petalScene.start(getElapsed()); },
       });
     };
 
     // ---- Clear-zone bloom -------------------------------------------------
-    // The center white blotch + pigment ring bloom on page load BEFORE the
-    // image reveal starts. Driven by its own uniform so legibility area is
-    // established first, then the image fills in around it.
+    // The center white blotch + pigment ring bloom on page load. Runs in
+    // parallel with the reveal tween — the legibility area still establishes
+    // over 4s while the image reveal starts immediately, so the page doesn't
+    // sit blank for the full pre-reveal window. Reveal duration is unchanged.
     const clearObj = { value: 0 };
     gsap.to(clearObj, {
       value: 1.0,
       duration: 4,
       ease: 'power2.out',
       onUpdate: () => { passUniforms.uClearProgress.value = clearObj.value; },
-      onComplete: startRevealTween,
     });
+    startRevealTween();
 
     const colorTex = texLoader.load(
       image ?? pickHeroImage(),

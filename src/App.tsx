@@ -3,12 +3,14 @@ import type { ComponentType } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { FairyCanvas } from './features/fairies';
 import { WatercolorCanvas } from './features/watercolor';
+import { AsciiCanvas } from './features/ascii';
 import { HERO_IMAGES } from './features/watercolor/constants';
 import NavMenu from './components/NavMenu';
 import { WORK_MANIFEST } from './features/work/workManifest';
 import Home from './pages/Home';
 import About from './pages/About';
 import Contact from './pages/Contact';
+import Ascii from './pages/Ascii';
 import './App.css';
 
 // Page routes are eager — each is ~1KB gzipped, and lazy-loading them caused
@@ -259,6 +261,12 @@ function App() {
     revealComplete ? 'app__main--stable'   : '',
   ].filter(Boolean).join(' ');
 
+  // Mount the ASCII overlay only on the homepage. Stable `currentImage`
+  // (chosen once on app mount via the shuffled sceneQueue) means this canvas
+  // doesn't rebuild on other state changes — it mounts once when `/` becomes
+  // active and tears down when the user navigates away.
+  const showAsciiOverlay = location.pathname === '/';
+
   return (
     <div className="app">
       <SceneBackground
@@ -267,6 +275,7 @@ function App() {
         onRevealStart={handleRevealStart}
         onPalette={handlePalette}
       />
+      {showAsciiOverlay && <AsciiCanvas overlay image={currentImage} />}
       <FairyCanvas
         onFairyClick={handleFairyClick}
         navOpen={navOpen}
@@ -280,6 +289,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/ascii" element={<Ascii />} />
             </Routes>
           </div>
           <NavMenu

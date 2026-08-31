@@ -22,14 +22,12 @@ type TopItem = { id: string; label: string; href?: string; hasSub?: boolean };
 
 const BASE_NAV_ITEMS: TopItem[] = [
   // { id: 'services', label: 'services', hasSub: true },
-  { id: 'about',    label: 'about',    href: '/about' },
   { id: 'contact',  label: 'contact',  href: '/contact' },
 ];
 
 const HOME_ITEM: TopItem = { id: 'home', label: 'home', href: '/' };
 
 const PATH_TO_ID: Record<string, string> = {
-  '/about':   'about',
   '/contact': 'contact',
 };
 

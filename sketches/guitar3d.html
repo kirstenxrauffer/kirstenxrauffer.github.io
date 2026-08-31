@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Acoustic Guitar — CAD Sketch</title>
+<script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; }
+  body {
+    background-color: beige;
+    background-image: radial-gradient(circle, grey 1px, transparent 1.5px);
+    background-size: 44px 44px;
+    background-position: 7px 9px;
+  }
+  canvas { display: block; background: transparent; }
+  #hud {
+    position: fixed; bottom: 16px; left: 16px;
+    font: 12px/1.6 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    color: #99a; background: rgba(8,8,16,.75);
+    padding: 10px 14px; border-radius: 5px;
+    pointer-events: none; user-select: none;
+  }
+  #hud kbd {
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 2px; padding: 0 5px; font-size: 11px;
+  }
+
+  /* ── Slider panel ── */
+  #panel {
+    position: fixed; top: 16px; right: 16px; width: 240px;
+    font: 11px/1.5 'SF Mono', 'Fira Code', monospace;
+    color: #bbc; background: rgba(8,8,16,.85);
+    padding: 14px; border-radius: 6px;
+    user-select: none; z-index: 10;
+    max-height: calc(100vh - 32px); overflow-y: auto;
+  }
+  #panel h3 { margin: 0 0 8px; font-size: 12px; color: #dde; font-weight: 600; }
+  #panel .group { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,.06); padding-bottom: 10px; }
+  #panel .group:last-child { border: none; margin-bottom: 0; }
+  #panel label {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 2px; font-size: 10px; color: #99a;
+  }
+  #panel label span.val { color: #dde; min-width: 32px; text-align: right; }
+  #panel input[type=range] {
+    width: 100%; margin: 0 0 6px; height: 4px;
+    -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,.1); border-radius: 2px; outline: none;
+  }
+  #panel input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px;
+    background: #8af; border-radius: 50%; cursor: pointer;
+  }
+  #panel button {
+    width: 100%; padding: 6px; margin-top: 6px;
+    font: 11px/1 'SF Mono', monospace; color: #bbc;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 3px; cursor: pointer;
+  }
+  #panel button:hover { background: rgba(255,255,255,.15); }
+  #panel .preset-row { display: flex; gap: 4px; margin-top: 4px; }
+  #panel .preset-row button { flex: 1; font-size: 10px; padding: 4px 2px; }
+  #toast {
+    position: fixed; bottom: 60px; right: 16px;
+    font: 11px/1 monospace; color: #8af; background: rgba(8,8,16,.9);
+    padding: 6px 12px; border-radius: 4px;
+    opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="hud">
+  drag to orbit · scroll to zoom &nbsp; <span id="hover" style="color:#99a">hover: —</span><br>
+  <kbd>S</kbd> section &nbsp;
+  <kbd>I</kbd> internals &nbsp;
+  <kbd>W</kbd> wireframe &nbsp;
+  <kbd>P</kbd> pick-debug &nbsp;
+  <kbd>R</kbd> reset
+</div>
+
+<div id="panel">
+  <h3>body shape</h3>
+  <div class="group" id="sliders"></div>
+  <div class="group">
+    <div class="preset-row">
+      <button onclick="applyPreset('dreadnought')">dreadnought</button>
+      <button onclick="applyPreset('concert')">concert</button>
+      <button onclick="applyPreset('jumbo')">jumbo</button>
+    </div>
+    <div class="preset-row">
+      <button onclick="applyPreset('parlor')">parlor</button>
+      <button onclick="applyPreset('classical')">classical</button>
+    </div>
+  </div>
+  <button onclick="copyValues()">copy values to console</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="guitar3d/constants.js"></script>
+<script src="guitar3d/geometry.js"></script>
+<script src="guitar3d/grain.js"></script>
+<script src="guitar3d/pick.js"></script>
+<script src="guitar3d/explode.js"></script>
+<script src="guitar3d/camera.js"></script>
+<script src="guitar3d/ui.js"></script>
+<script src="guitar3d/render.js"></script>
+<script src="guitar3d/components.js"></script>
+<script src="guitar3d/sketch.js"></script>
+</body>
+</html>
