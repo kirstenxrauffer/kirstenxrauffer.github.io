@@ -11,6 +11,17 @@
     background: radial-gradient(ellipse at center, transparent 50%, rgba(255, 255, 255, 0.55) 100%);
     pointer-events: none;
   }
+
+  @media (max-width: 768px) {
+    &::after {
+      background: radial-gradient(
+        ellipse at center,
+        transparent 30%,
+        rgba(255, 255, 255, 0.42) 56%,
+        rgba(255, 255, 255, 0.78) 100%
+      );
+    }
+  }
 }
 
 .watercolor-canvas {
