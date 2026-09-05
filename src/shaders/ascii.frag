@@ -562,7 +562,17 @@ void main() {
     // Widening the fade was a trap under the old strict reading order, where
     // it smeared across rows and collapsed back into a top-to-bottom wipe.
     // Inside a line sweep it stays horizontal, which is what makes it safe.
-    const float FADE_SWEEPS = 0.35;   // per-cell fade-in, in carriage sweeps
+    // FADE_SWEEPS is the load-bearing constant. A cell takes this many
+    // carriage sweeps to reach full ink, so at any instant roughly this many
+    // type lines are mid-settle — the active region is ~2.5 lines (65 px)
+    // tall even though the discrete step is one 26 px line. That is what
+    // buys back the legibility of the original chunky 9-row version without
+    // a 76 px slab ever popping into place: within each settling line the
+    // ink runs dark-left to faint-right, and the whole wedge slides right
+    // and down. Drop it toward 0.35 and the front collapses to a 26 px
+    // sliver, which is provably still left-to-right (check ?typeDebug=1)
+    // but far too thin to read as motion.
+    const float FADE_SWEEPS = 2.5;    // per-cell fade-in, in carriage sweeps
     const float STRIKE_LAG  = 0.10;   // per-overstrike trail, in sweeps
     float TYPE_FADE = FADE_SWEEPS / numLines;
     float strikeLag = STRIKE_LAG  / numLines;
@@ -575,8 +585,13 @@ void main() {
     // has: at any moment there is a live band of bare outlines that the
     // filler has not caught up to yet, and that band is bounded left and
     // right by the two carriage positions.
-    const float FILL_DELAY_S = 1.0;
-    float fillDelay = FILL_DELAY_S / max(uScrambleDuration, 0.001);
+    // Measured in sweeps, not seconds, so the gap between the two heads
+    // survives a speed change: at a fixed 1 s the filler trails 3.5 lines at
+    // the 11 s default but only 0.9 of a line at ?dur=40, which collapses the
+    // two carriages into one exactly when you slow it down to inspect them.
+    // 3.5 sweeps ≈ 1 s at the default duration.
+    const float FILL_DELAY_SWEEPS = 3.5;
+    float fillDelay = FILL_DELAY_SWEEPS / numLines;
 
     // Reserve room at both ends: the first cell fades in from t=0 instead of
     // popping in at full ink, and the trailing filler carriage — delay plus
