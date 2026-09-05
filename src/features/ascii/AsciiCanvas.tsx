@@ -22,16 +22,27 @@ import type { AsciiCanvasProps } from './types';
 // ?semantic=1       enables HSV content-aware character selection
 // ?neill=1          enables Neill (1982) 'M' overstrike at darkness > 0.85
 // ?categoryDebug=1  tints each cell by its assigned HSV category
+// ?typeDebug=1      shows the reveal schedule (green outline / red filler)
+// ?dur=<seconds>    overrides the typewriter duration (see below)
 // All default OFF — no regression for users loading the page normally.
 function readUrlFlags() {
   if (typeof window === 'undefined') {
-    return { semantic: false, neill: false, categoryDebug: false };
+    return { semantic: false, neill: false, categoryDebug: false, typeDebug: false, duration: null };
   }
   const p = new URLSearchParams(window.location.search);
+  // Total reveal seconds. This is the carriage-speed knob: the shader types
+  // in left-to-right sweeps a few cell rows tall, so one sweep lasts
+  // roughly dur / lineCount (~34 lines at 1512×860). Passing a large value
+  // is how you slow the sweep enough to watch it move — ?dur=40 gives a
+  // ~1.1 s crawl across the screen. Capped so a typo can't hang the reveal
+  // for minutes. Works on the homepage overlay too, not just /ascii.
+  const dur = parseFloat(p.get('dur') ?? '');
   return {
     semantic:      p.get('semantic')      === '1',
     neill:         p.get('neill')         === '1',
     categoryDebug: p.get('categoryDebug') === '1',
+    typeDebug:     p.get('typeDebug')     === '1',
+    duration: Number.isFinite(dur) && dur > 0 ? Math.min(dur, 300) : null,
   };
 }
 
@@ -45,7 +56,11 @@ const SLIDERS: [string, string, number, number, number, number][] = [
   ['Tonal Base',      'uTonalStrength',   0,    2,  0.01, 0.4],
   ['Fill Layers',     'uFillMaxLayers',   1,   12,  1,   4],
   ['Layer Opacity',   'uFillLayerAlpha',  0.05, 0.5, 0.01, 0.30],
-  ['Scramble Dur.',   'uScrambleDuration', 0.5, 8,  0.5, ASCII_DEFAULTS.scrambleDuration],
+  // Doubles as the carriage-speed knob: one left-to-right sweep lasts
+  // uScrambleDuration / numLines (see the typewriter timing block in
+  // ascii.frag). Range runs well past the default so the sweep can be
+  // slowed to a crawl while tuning; ?dur= sets the same value at load.
+  ['Scramble Dur.',   'uScrambleDuration', 0.5, 60, 0.5, ASCII_DEFAULTS.scrambleDuration],
 ];
 
 export default function AsciiCanvas({
@@ -67,10 +82,10 @@ export default function AsciiCanvas({
   const [sliderValues, setSliderValues] = useState<Record<string, number>>(() => {
     const v: Record<string, number> = {};
     for (const [, key, , , , def] of SLIDERS) v[key] = def;
-    // Override with props
+    // Override with props, then let ?dur= win over both for slow-motion tests
     v.uCellSize = cellSize;
     v.uTolerance = tolerance;
-    v.uScrambleDuration = scrambleDuration;
+    v.uScrambleDuration = urlFlagsRef.current.duration ?? scrambleDuration;
     return v;
   });
 
@@ -149,6 +164,7 @@ export default function AsciiCanvas({
       uFillMaxLayers:   { value: sliderValues.uFillMaxLayers },
       uFillLayerAlpha:  { value: sliderValues.uFillLayerAlpha },
       uDebugEdges:      { value: debugEdges ? 1.0 : 0.0 },
+      uTypeDebug:       { value: urlFlagsRef.current.typeDebug ? 1.0 : 0.0 },
       uTransparent:     { value: overlay ? 1.0 : 0.0 },
       uWordCount:       { value: EASTER_EGG_WORDS.length },
       uWordMaxLen:      { value: WORD_MAX_LEN },
@@ -208,17 +224,49 @@ export default function AsciiCanvas({
     const startTime = performance.now();
     let paused = document.hidden;
 
+    // Once the type-on animation has played out, this shader emits a
+    // bit-identical frame forever: scrambleT clamps at 1.0 (ascii.frag:486),
+    // and the only other uTime consumer is the grain term at ascii.frag:854,
+    // which is added to `color` — a value the overlay branch discards in
+    // favour of preColor/preAlpha (ascii.frag:883-888). Re-running a
+    // ~1000-tap-per-pixel fullscreen shader at 60 fps to produce the same
+    // pixels is pure waste, so render the final frame and park the loop.
+    //
+    // Standalone (/ascii) mode never parks — the debug panel mutates uniforms
+    // directly and needs a live loop to show the result.
+    const CLEAR_TWEEN_S = 4; // matches the gsap clearObj tween below/above
+    const staticAfter = overlay
+      ? Math.max(sliderValues.uScrambleDuration, CLEAR_TWEEN_S) + 0.25
+      : Infinity;
+    let parked = false;
+
+    // Re-present the static frame after events that can invalidate the
+    // drawing buffer while the loop is parked.
+    const repaint = () => {
+      if (disposed || !imageLoaded) return;
+      uniforms.uTime.value = (performance.now() - startTime) / 1000;
+      renderer.render(scene, camera);
+    };
+
     const render = () => {
       if (disposed) return;
       if (paused) { animFrameId = requestAnimationFrame(render); return; }
       animFrameId = requestAnimationFrame(render);
       if (!imageLoaded) return;
-      uniforms.uTime.value = (performance.now() - startTime) / 1000;
+      const t = (performance.now() - startTime) / 1000;
+      uniforms.uTime.value = t;
       renderer.render(scene, camera);
+      if (t >= staticAfter) {
+        parked = true;
+        cancelAnimationFrame(animFrameId);
+      }
     };
     render();
 
-    const onVisibility = () => { paused = document.hidden; };
+    const onVisibility = () => {
+      paused = document.hidden;
+      if (!paused && parked) repaint();
+    };
     document.addEventListener('visibilitychange', onVisibility);
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -231,6 +279,9 @@ export default function AsciiCanvas({
         const rh = window.innerHeight;
         renderer.setSize(rw, rh, false);
         (uniforms.uResolution.value as THREE.Vector2).set(rw, rh);
+        // A resize reallocates the drawing buffer, so a parked loop must
+        // redraw once at the new size or the overlay would go blank.
+        if (parked) repaint();
       }, 100);
     };
     window.addEventListener('resize', onResize);

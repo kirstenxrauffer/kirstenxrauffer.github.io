@@ -21,7 +21,6 @@ export default defineConfig({
         manualChunks: {
           three: ['three'],
           gsap:  ['gsap'],
-          p5:    ['p5', 'p5.brush'],
         },
       },
     },

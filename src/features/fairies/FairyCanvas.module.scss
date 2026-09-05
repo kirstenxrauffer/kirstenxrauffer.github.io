@@ -173,6 +173,27 @@
     &:disabled { opacity: 0.45; cursor: not-allowed; }
   }
 
+  // Mid-game "quit game" — reads as a destructive-but-quiet option, so it sits
+  // between the solid game buttons and the ghost dismiss in visual weight.
+  &__btn--quit {
+    appearance: none;
+    border: 1px solid rgba(45, 16, 61, 0.18);
+    background: transparent;
+    color: rgba(45, 16, 61, 0.75);
+    padding: 0.4rem 0.9rem;
+    border-radius: 0.6rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 120ms ease, background 120ms ease, color 120ms ease;
+    &:hover {
+      transform: translateY(-1px);
+      background: rgba(45, 16, 61, 0.06);
+      color: rgba(45, 16, 61, 0.95);
+    }
+  }
+
   &__btn--ghost {
     appearance: none;
     border: none;

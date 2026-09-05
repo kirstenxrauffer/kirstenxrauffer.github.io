@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { gsap } from 'gsap';
 import passthroughVert from '../../shaders/passthrough.vert';
 import warpFrag from '../../shaders/watercolor_warp.frag';
+import watercolorBaseFrag from '../../shaders/watercolor_base.frag';
 import watercolorFrag from '../../shaders/watercolor.frag';
 import blurFrag from '../../shaders/watercolor_blur.frag';
 import sourceBlurFrag from '../../shaders/watercolor_source_blur.frag';
@@ -82,8 +83,9 @@ export default function WatercolorCanvas({
     // ---- Textures ---------------------------------------------------------
     const texLoader = new THREE.TextureLoader();
 
-    // Paper texture — ambientCG Paper006 displacement (CC0, tileable)
-    const paperTex = texLoader.load('/textures/paper.jpg');
+    // Paper texture — ambientCG Paper006 displacement (CC0, tileable).
+    // WebP re-encode of the original 2.6 MB JPEG; see index.html preload.
+    const paperTex = texLoader.load('/textures/paper.webp');
     paperTex.wrapS     = THREE.RepeatWrapping;
     paperTex.wrapT     = THREE.RepeatWrapping;
     paperTex.minFilter = THREE.LinearMipmapLinearFilter;
@@ -154,30 +156,66 @@ export default function WatercolorCanvas({
     const edgeSoftenScene = new THREE.Scene();
     edgeSoftenScene.add(new THREE.Mesh(quadGeo, edgeSoftenMat));
 
-    // ---- Pass B — composite uniforms --------------------------------------
     const D = UNIFORM_DEFAULTS;
-    const passUniforms = {
+
+    // ---- Pass B1 — static painterly bake ----------------------------------
+    // Everything watercolor_base.frag reads is frozen once the pre-blur chain
+    // has run, so this renders on image load and on resize instead of every
+    // frame. It carries the 289-tap Kuwahara filter that used to dominate the
+    // per-frame cost.
+    //
+    // Sized to the canvas drawing buffer (device pixels), not the CSS viewport,
+    // so the bake keeps the same detail the per-frame version produced and the
+    // composite reads it 1:1 with no resampling. uResolution stays in CSS
+    // pixels — the shader uses it purely as the scale that puts the Kuwahara
+    // radius in CSS-pixel units.
+    const dbSize = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const baseRT = new THREE.WebGLRenderTarget(dbSize.x, dbSize.y, rtSpec);
+
+    const baseUniforms = {
       uColor:          { value: paperTex as THREE.Texture },
       uWarp:           { value: warpRT.texture },
       uPaper:          { value: paperTex },
-      uTime:           { value: 0 },
+      uResolution:     { value: new THREE.Vector2(w, h) },
+      uImageAspect:    { value: 1.0 },
+      uDensityWeights: { value: new THREE.Vector4(...D.densityWeights) },
+      uAbstraction:    { value: D.abstraction },
+      uBlotchiness:    { value: D.blotchiness },
+      uWobbleStrength: { value: D.wobbleStrength },
+      uWarpDisplace:   { value: D.warpDisplace },
+    };
+    const baseMat = new THREE.ShaderMaterial({
+      vertexShader:   passthroughVert,
+      fragmentShader: watercolorBaseFrag,
+      uniforms:       baseUniforms,
+      depthWrite:     false,
+      depthTest:      false,
+    });
+    const baseScene = new THREE.Scene();
+    baseScene.add(new THREE.Mesh(quadGeo, baseMat));
+
+    const renderBase = () => {
+      renderer.setRenderTarget(baseRT);
+      renderer.render(baseScene, camera);
+      renderer.setRenderTarget(null);
+    };
+
+    // ---- Pass B2 — per-frame composite uniforms ---------------------------
+    const passUniforms = {
+      uBase:           { value: baseRT.texture },
+      uWarp:           { value: warpRT.texture },
+      uPaper:          { value: paperTex },
       uProgress:       { value: 0 },
       uResolution:     { value: new THREE.Vector2(w, h) },
       uBloomSeed:      { value: slugToSeed(slug) },
       uBloomOrigin:    { value: new THREE.Vector2(...bloomOrigin) },
-      uImageAspect:    { value: 1.0 },
       uWarpInfluence:  { value: D.warpInfluence },
       uRevealSpread:   { value: D.revealSpread },
       uRingHalfwidth:  { value: D.ringHalfwidth },
       uRingStrength:   { value: D.ringStrength },
       uDensityWeights: { value: new THREE.Vector4(...D.densityWeights) },
-      uBeta:           { value: D.beta },
       uFiberStrength:  { value: D.fiberStrength },
       uFiberScale:     { value: D.fiberScale },
-      uAbstraction:    { value: D.abstraction },
-      uBlotchiness:    { value: D.blotchiness },
-      uWobbleStrength: { value: D.wobbleStrength },
-      uWarpDisplace:   { value: D.warpDisplace },
       uClearProgress:  { value: 0 },
       uPetals:         { value: petalScene.texture },
     };
@@ -238,7 +276,7 @@ export default function WatercolorCanvas({
         if (disposed) return;
         tex.minFilter = THREE.LinearFilter;
         tex.magFilter = THREE.LinearFilter;
-        passUniforms.uImageAspect.value = tex.image.width / tex.image.height;
+        baseUniforms.uImageAspect.value = tex.image.width / tex.image.height;
 
         const snapTime = getElapsed();
         warpUniforms.uTime.value = snapTime;
@@ -273,7 +311,11 @@ export default function WatercolorCanvas({
 
         renderer.setRenderTarget(null);
 
-        passUniforms.uColor.value = src;
+        // Hand the pre-blurred image to the bake and queue it. The bake runs
+        // from the render loop rather than here so it is guaranteed to happen
+        // after the warp pass above has landed in warpRT.
+        baseUniforms.uColor.value = src;
+        baseNeedsBake = true;
 
         // Extract palette from the raw image and surface it to the parent
         const palette = extractPalette(tex.image as HTMLImageElement | ImageBitmap, 4);
@@ -284,6 +326,9 @@ export default function WatercolorCanvas({
     // ---- Render loop -------------------------------------------------------
     let warpFrozen = false;
     let paused = document.hidden;
+    // Drives the static bake. Set on the first frame, when the hero image is
+    // ready, and after a resize — never per frame.
+    let baseNeedsBake = true;
 
     const render = () => {
       if (disposed) return;
@@ -295,13 +340,24 @@ export default function WatercolorCanvas({
       const t = frozenTime ?? elapsed;
 
       warpUniforms.uTime.value = t;
-      passUniforms.uTime.value = t;
 
       // Warp pass — skip once frozen (output is static from this point on)
       if (!warpFrozen) {
         renderer.setRenderTarget(warpRT);
         renderer.render(warpScene, camera);
         if (frozenTime !== null) warpFrozen = true;
+      }
+
+      // Static painterly bake (Pass B1) — runs only when its inputs change.
+      // Between the first frame and the hero image landing, the bake is one
+      // frame's warp field behind. That window is invisible: the reveal tween
+      // has a 0.5 s delay and eases to 0.65 over 15 s, so the revealed disc is
+      // under ~0.05 in UV radius for the first second, and the clear zone masks
+      // its centre — almost none of the baked colour is on screen yet. Once the
+      // image loads the warp freezes and the bake is exact from then on.
+      if (baseNeedsBake) {
+        renderBase();
+        baseNeedsBake = false;
       }
 
       // Petal pass — renders to petalScene.rt; continues animating after freeze
@@ -329,9 +385,15 @@ export default function WatercolorCanvas({
         preBlurRTs[0].setSize(rw, rh);
         preBlurRTs[1].setSize(rw, rh);
 
+        // The bake target tracks the canvas drawing buffer, so re-read it after
+        // setSize rather than assuming a pixel ratio.
+        renderer.getDrawingBufferSize(dbSize);
+        baseRT.setSize(dbSize.x, dbSize.y);
+
         // Update resolution uniforms
         warpUniforms.uResolution.value.set(rw, rh);
         passUniforms.uResolution.value.set(rw, rh);
+        baseUniforms.uResolution.value.set(rw, rh);
         blurUniforms.uResolution.value.set(rw, rh);
         sourceBlurUniforms.uResolution.value.set(rw, rh);
         edgeSoftenUniforms.uResolution.value.set(rw, rh);
@@ -369,8 +431,13 @@ export default function WatercolorCanvas({
           src = softenDst.texture;
 
           renderer.setRenderTarget(null);
-          passUniforms.uColor.value = src;
+          baseUniforms.uColor.value = src;
         }
+
+        // Re-bake unconditionally: warpRT and baseRT were both reallocated
+        // above, so the existing bake is stale (and baseRT's contents are
+        // undefined) whether or not the hero image has loaded yet.
+        baseNeedsBake = true;
       }, 150);
     };
     window.addEventListener('resize', onResize);
@@ -400,12 +467,14 @@ export default function WatercolorCanvas({
       gsap.killTweensOf(clearObj);
 
       warpRT.dispose();
+      baseRT.dispose();
       preBlurRTs[0].dispose();
       preBlurRTs[1].dispose();
       warpMat.dispose();
       blurMat.dispose();
       sourceBlurMat.dispose();
       edgeSoftenMat.dispose();
+      baseMat.dispose();
       passMat.dispose();
       quadGeo.dispose();
       colorTex.dispose();

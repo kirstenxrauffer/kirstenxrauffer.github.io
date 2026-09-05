@@ -34,8 +34,18 @@
     <!-- JSON-LD Person schema is injected per-page via react-helmet-async
          (see src/pages/Home.tsx for the rich version with worksFor/subjectOf). -->
 
-    <!-- Preload paper texture used by the watercolor shader on first paint -->
-    <link rel="preload" as="image" href="/textures/paper.jpg" fetchpriority="high" />
+    <!-- Preload paper texture used by the watercolor shader on first paint.
+         WebP: same 2048² grayscale grain as the original JPEG at 1.1 MB instead
+         of 2.6 MB, so it stops crowding out the hero image on this high-priority
+         fetch. (rms error 2.1 against a signal whose own stddev is 9.8.)
+
+         `crossorigin` is REQUIRED, not cosmetic: three.js Loader defaults
+         crossOrigin to 'anonymous' (three/src/loaders/Loader.js), so the
+         texture is fetched as a CORS request. A preload without this attribute
+         is a non-CORS request, the credentials modes don't match, and the
+         browser discards the preloaded response and downloads the texture a
+         second time — which is what this tag used to do. -->
+    <link rel="preload" as="image" href="/textures/paper.webp" fetchpriority="high" crossorigin />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://api.fontshare.com" crossorigin />

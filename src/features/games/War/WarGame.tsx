@@ -393,6 +393,14 @@ export default function WarGame({ onEnd, onClose }: GameProps) {
         <button
           type="button"
           className={styles['war__action']}
+          onClick={handlePlay}
+          disabled={phase !== 'idle' || isGameOver(player, navi)}
+        >
+          play card
+        </button>
+        <button
+          type="button"
+          className={styles['war__action']}
           onClick={handleShuffle}
           disabled={phase !== 'idle'}
         >

@@ -4,14 +4,6 @@
 // nothing persists on the canvas. Each live stamp must be re-drawn every frame
 // with alpha scaled to its remaining lifetime.
 //
-// Why native p5 (not p5.brush): p5.brush's spray pipeline draws into an
-// off-screen glMask and composites it to the canvas via a postdraw lifecycle
-// hook. That hook is registered by registerP5Addon(), which p5.brush only runs
-// when typeof p5 !== "undefined" (global mode). In ESM instance mode, p5 is
-// never a global, so the hook is never registered and the mask is never
-// flushed — nothing would appear. Native p5 draws directly to the WEBGL
-// framebuffer, no flush step needed.
-//
 // Spread-over-time: scatter radius grows with age (easeInQuad), so each stamp
 // starts tight at the cursor and blooms open as it fades.
 //
@@ -20,8 +12,15 @@
 //
 // Deterministic scatter: we advance a Lehmer LCG from the stamp's rngSeed to
 // produce the same dot positions every frame — no per-frame flicker.
+//
+// BATCHING: a saturated trail is ~360 live stamps × 4 dots, plus a sparkle pass
+// on the ~19 % of stamps above the twinkle threshold — north of 2,000 individual
+// fills per frame if each dot is drawn on its own. Instead, dots are bucketed by
+// quantised colour and alpha and accumulated into one Path2D per bucket, then
+// filled once. Bucket counts are capped (see *_BUCKETS below), so the per-frame
+// fill count is bounded by ~256 regardless of how dense the trail gets.
 
-import type p5 from 'p5';
+import type { Painter } from '../render/painter';
 import type { PollenStamp } from './pollen.types';
 
 // Glitter color range per dot — amber-gold → yellow-gold → champagne rose-gold.
@@ -58,8 +57,17 @@ const DOT_DIAMETER = 3;
 // Minimum cursor travel (px²) before we spawn a new stamp.
 const MIN_MOVE_SQ = 4; // 2 px
 
-// Minimum ms between stamps — ~31/sec; 25% more than the original 40ms interval.
-const SPAWN_INTERVAL_MS = 3;
+// Minimum ms between stamps.
+//
+// This used to be 3 ms, which never actually bound: addPollenStamp is called
+// once per draw frame, and a frame is ~16.7 ms at 60 Hz. That made trail density
+// a function of frame rate — a 120 Hz display spawned twice as many stamps as a
+// 60 Hz one (720 live vs 360), so the machines best able to render the trail got
+// the heaviest one, and slow machines silently got a sparser trail.
+//
+// 16 ms pins the rate at ~62 stamps/sec: identical to the old behaviour at 60 Hz,
+// but no longer doubling on high-refresh displays.
+const SPAWN_INTERVAL_MS = 16;
 
 // Sparkle: bright white glints that pulse independently on each stamp.
 // Period = 2π / SPARKLE_FREQ ≈ 3.5 s → each stamp sees ~1–2 peaks in its 6 s life.
@@ -85,8 +93,17 @@ let _lastY = 0;
 // suppresses cursor stamps (they share the same ring buffer but tick independently).
 let _lastFairySpawnAt = 0;
 
+// addPollenStamp / addFairyPollenStamp are both called once per draw frame, so
+// this used to construct a fresh MediaQueryList 1–2× per frame. Build the query
+// once and read `.matches` off it — the object stays live, so a mid-session
+// change to the OS setting is still picked up.
+const reducedMotionQuery =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : null;
+
 function reducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return reducedMotionQuery?.matches ?? false;
 }
 
 /**
@@ -145,23 +162,64 @@ export function tickPollenTrail(now: number): void {
   }
   stamps.length = write;
 }
+// ── Batching buckets ────────────────────────────────────────────────────────
+// Quantisation levels. These bound the per-frame fill count: the dot pass emits
+// at most ALPHA_BUCKETS × G_BUCKETS × B_BUCKETS fills, the sparkle pass at most
+// ALPHA_BUCKETS × SPARKLE_LAYERS. Both are small and independent of trail size.
+const ALPHA_BUCKETS   = 16;
+const G_BUCKETS       = 4;
+const B_BUCKETS       = 2;
+const SPARKLE_LAYERS  = 8;
+
+// Reused across frames so a saturated trail does not churn the allocator.
+const dotPaths = new Map<number, Path2D>();
+const sparklePaths = new Map<number, Path2D>();
+
+const TAU = Math.PI * 2;
+
+/** Bucket index → representative value at the centre of the bucket. */
+function bucketCentre(bucket: number, buckets: number, min: number, max: number): number {
+  return min + ((bucket + 0.5) / buckets) * (max - min);
+}
+
+// The eight sparkle layers, in draw order: [colour, alpha multiplier].
+// Indices 0/1 are the cross-flare arms, which are ellipses rather than circles
+// and so are emitted separately below.
+const SPARKLE_SPEC: [number, number, number, number][] = [
+  [255, 255, 255, 230], // 0 inner core
+  [255, 255, 255, 120], // 1 mid glow
+  [255, 255, 255,  60], // 2 soft outer halo
+  [255, 240, 160,  30], // 3 extended glow ring 1
+  [255, 220, 120,  16], // 4 extended glow ring 2
+  [255, 200,  80,   8], // 5 extended glow ring 3
+  [255, 180,  60,   4], // 6 outermost bloom
+  [255, 255, 255, 200], // 7 cross-flare arms (ellipses)
+];
+const SPARKLE_DIAM = [SPARKLE_INNER_D, SPARKLE_MID_D, SPARKLE_OUTER_D,
+                      SPARKLE_GLOW_D1, SPARKLE_GLOW_D2, SPARKLE_GLOW_D3, SPARKLE_GLOW_D4];
 
 /**
- * Draws all live stamps into the current p5 context using native circle calls.
- * Must be called after tickPollenTrail and BEFORE the fairy draw loop.
+ * Draws all live stamps. Must be called after tickPollenTrail and BEFORE the
+ * fairy draw loop.
  *
- * Uses native p5 (not p5.brush) because p5.brush's spray mask requires a
- * postdraw flush that is never registered in ESM instance mode.
+ * Dots are accumulated into per-bucket Path2Ds and filled in bulk rather than
+ * one fill per dot — see the BATCHING note at the top of this file.
  */
-export function drawPollenTrail(p: p5, now: number): void {
-  p.noStroke();
+export function drawPollenTrail(p: Painter, now: number): void {
+  const ctx = p.ctx;
+  dotPaths.clear();
+  sparklePaths.clear();
+
+  // ── Pass 1: gold dots ─────────────────────────────────────────────────────
   for (let i = 0; i < stamps.length; i++) {
     const s = stamps[i];
     const lifeLeft = 1 - (now - s.createdAt) / TRAIL_TTL_MS;
     // easeInQuad: fades sooner than linear, decelerates toward expiry.
     const alpha01 = lifeLeft * lifeLeft;
-    const alpha = Math.round(alpha01 * 200 * POLLEN_OPACITY);
-    if (alpha <= 0) continue;
+    const alpha = alpha01 * 200 * POLLEN_OPACITY;
+    if (alpha < 1) continue;
+
+    const aB = Math.min(ALPHA_BUCKETS - 1, (alpha / 255 * ALPHA_BUCKETS) | 0);
 
     const age01 = 1 - lifeLeft;
     // Scatter radius grows linearly with age — no easeInQuad delay at birth.
@@ -177,8 +235,6 @@ export function drawPollenTrail(p: p5, now: number): void {
     const cy = s.y + fallY;
 
     // Lehmer LCG — deterministic per stamp, same positions every frame.
-    // Per-dot color varies using two independent bit-slices of the post-dy seed
-    // so each particle catches light differently (amber-gold → champagne rose-gold).
     let seed = s.rngSeed;
     for (let j = 0; j < DOT_COUNT; j++) {
       seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -187,14 +243,30 @@ export function drawPollenTrail(p: p5, now: number): void {
       const dy = ((seed / 0xFFFFFFFF) * 2 - 1) * scatterRadius;
       const shimmer = (seed & 0xFF) / 255;         // brightness: G channel
       const tint    = ((seed >> 8) & 0xFF) / 255;  // warmth: B channel
-      const pg = Math.round(POLLEN_G_MIN + shimmer * (POLLEN_G_MAX - POLLEN_G_MIN));
-      const pb = Math.round(tint * POLLEN_B_MAX);
-      p.fill(255, pg, pb, alpha);
-      p.circle(cx + dx, cy + dy, DOT_DIAMETER);
+
+      const gB = Math.min(G_BUCKETS - 1, (shimmer * G_BUCKETS) | 0);
+      const bB = Math.min(B_BUCKETS - 1, (tint    * B_BUCKETS) | 0);
+      const key = (aB * G_BUCKETS + gB) * B_BUCKETS + bB;
+
+      let path = dotPaths.get(key);
+      if (!path) { path = new Path2D(); dotPaths.set(key, path); }
+      path.moveTo(cx + dx + DOT_DIAMETER / 2, cy + dy);
+      path.arc(cx + dx, cy + dy, DOT_DIAMETER / 2, 0, TAU);
     }
   }
 
-  // Sparkle pass — white glints pulsing independently on each stamp.
+  for (const [key, path] of dotPaths) {
+    const bB = key % B_BUCKETS;
+    const gB = ((key / B_BUCKETS) | 0) % G_BUCKETS;
+    const aB = (key / (B_BUCKETS * G_BUCKETS)) | 0;
+    const pg = bucketCentre(gB, G_BUCKETS, POLLEN_G_MIN, POLLEN_G_MAX);
+    const pb = bucketCentre(bB, B_BUCKETS, 0, POLLEN_B_MAX);
+    const pa = bucketCentre(aB, ALPHA_BUCKETS, 0, 255) / 255;
+    ctx.fillStyle = `rgba(255,${pg | 0},${pb | 0},${pa})`;
+    ctx.fill(path);
+  }
+
+  // ── Pass 2: sparkle glints ────────────────────────────────────────────────
   // sin() oscillates with period ≈ 3.5 s; random sparklePhase staggers stamps
   // so they twinkle at different times rather than all at once.
   for (let i = 0; i < stamps.length; i++) {
@@ -206,11 +278,11 @@ export function drawPollenTrail(p: p5, now: number): void {
 
     // Normalise to 0–1 above the threshold, then gate by stamp's own fade.
     const sparkleIntensity = (sinVal - SPARKLE_THRESHOLD) / (1 - SPARKLE_THRESHOLD);
-    const lifeAlpha = lifeLeft * lifeLeft; // same easeInQuad as yellow pass
+    const lifeAlpha = lifeLeft * lifeLeft; // same easeInQuad as the dot pass
     const sparkleAlpha = sparkleIntensity * lifeAlpha;
     if (sparkleAlpha < 0.01) continue;
 
-    // Re-derive center with gravity/drift (identical formula to yellow pass).
+    // Re-derive center with gravity/drift (identical formula to the dot pass).
     const age01 = 1 - lifeLeft;
     const fallY  = GRAVITY_PX * age01 * age01;
     const driftDir = ((s.rngSeed % 1000) / 500) - 1;
@@ -218,30 +290,35 @@ export function drawPollenTrail(p: p5, now: number): void {
     const cx = s.x + driftX;
     const cy = s.y + fallY;
 
+    const aB = Math.min(ALPHA_BUCKETS - 1, (sparkleAlpha * ALPHA_BUCKETS) | 0);
+
+    // Layered glow circles: inner bright core → mid → soft outer halo → blooms.
+    for (let layer = 0; layer < SPARKLE_DIAM.length; layer++) {
+      const key = aB * SPARKLE_LAYERS + layer;
+      let path = sparklePaths.get(key);
+      if (!path) { path = new Path2D(); sparklePaths.set(key, path); }
+      const rad = SPARKLE_DIAM[layer] / 2;
+      path.moveTo(cx + rad, cy);
+      path.arc(cx, cy, rad, 0, TAU);
+    }
+
     // Cross-flare arms: two thin ellipses at 0° and 90°.
     const flareDim = SPARKLE_FLARE_LEN * 2 * sparkleAlpha;
-    const flareAlpha = Math.round(sparkleAlpha * 200 * POLLEN_OPACITY);
-    p.fill(255, 255, 255, flareAlpha);
-    p.ellipse(cx, cy, flareDim, 2);  // horizontal arm
-    p.ellipse(cx, cy, 2, flareDim);  // vertical arm
+    const flareKey = aB * SPARKLE_LAYERS + 7;
+    let flare = sparklePaths.get(flareKey);
+    if (!flare) { flare = new Path2D(); sparklePaths.set(flareKey, flare); }
+    flare.moveTo(cx + flareDim / 2, cy);
+    flare.ellipse(cx, cy, flareDim / 2, 1, 0, 0, TAU);
+    flare.moveTo(cx + 1, cy);
+    flare.ellipse(cx, cy, 1, flareDim / 2, 0, 0, TAU);
+  }
 
-    // Layered glow circles: inner bright core → mid → soft outer halo.
-    p.fill(255, 255, 255, Math.round(sparkleAlpha * 230 * POLLEN_OPACITY));
-    p.circle(cx, cy, SPARKLE_INNER_D);
-    p.fill(255, 255, 255, Math.round(sparkleAlpha * 120 * POLLEN_OPACITY));
-    p.circle(cx, cy, SPARKLE_MID_D);
-    p.fill(255, 255, 255, Math.round(sparkleAlpha * 60 * POLLEN_OPACITY));
-    p.circle(cx, cy, SPARKLE_OUTER_D);
-
-    // Extended soft glow — larger rings with a warm amber tint that bleeds into
-    // the surrounding pollen gold, making the sparkle feel embedded in the dust.
-    p.fill(255, 240, 160, Math.round(sparkleAlpha * 30 * POLLEN_OPACITY));
-    p.circle(cx, cy, SPARKLE_GLOW_D1);
-    p.fill(255, 220, 120, Math.round(sparkleAlpha * 16 * POLLEN_OPACITY));
-    p.circle(cx, cy, SPARKLE_GLOW_D2);
-    p.fill(255, 200, 80, Math.round(sparkleAlpha * 8 * POLLEN_OPACITY));
-    p.circle(cx, cy, SPARKLE_GLOW_D3);
-    p.fill(255, 180, 60, Math.round(sparkleAlpha * 4 * POLLEN_OPACITY));
-    p.circle(cx, cy, SPARKLE_GLOW_D4);
+  for (const [key, path] of sparklePaths) {
+    const layer = key % SPARKLE_LAYERS;
+    const aB    = (key / SPARKLE_LAYERS) | 0;
+    const [r, g, b, mult] = SPARKLE_SPEC[layer];
+    const sa = bucketCentre(aB, ALPHA_BUCKETS, 0, 1);
+    ctx.fillStyle = `rgba(${r},${g},${b},${(sa * mult * POLLEN_OPACITY) / 255})`;
+    ctx.fill(path);
   }
 }

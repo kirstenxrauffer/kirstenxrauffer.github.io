@@ -58,7 +58,7 @@ function Home() {
         <WaveText as="span" variant="scatter" text="hi, i'm " delay={0} />
         <ScatterCycle words={['kirsten', 'k.k.', 'kirbs', 'kir', 'kirby']} />
       </h1>
-      <WaveText as="p" variant="drift" text="i'm a full-stack softwareengineer" delay={GAP} />
+      <WaveText as="p" variant="drift" text="i'm a full-stack software engineer" delay={GAP} />
       <WaveText as="p" variant="drift" text="welcome to my tiny corner of the web" delay={GAP * 2} />
     </section>
   );

@@ -63,8 +63,18 @@ void main() {
     float scale        = aBirthLifeSeedScale.w;
     vSeed = seed;
 
+    // Unwrapped life count — negative until this petal's staggered birthTime.
+    float cycles = (uTime - birthTime) / lifeDuration;
+
     // Age [0,1) — wraps so petals recycle automatically
-    float age = fract((uTime - birthTime) / lifeDuration);
+    float age = fract(cycles);
+
+    // Births are staggered across one lifeDuration, but fract() maps the
+    // pre-birth negative cycles back into [0,1) — which would drop a petal into
+    // the middle of its journey at uTime=0 and fade it up in place.  Holding it
+    // invisible until cycles >= 0 makes every petal enter from uSpawnX and
+    // drift in, at startup exactly as it does on every later recycle.
+    float born = step(0.0, cycles);
 
     float wrappedTime = mod(uTime, 10000.0);
 
@@ -134,7 +144,7 @@ void main() {
     // to prevent a snap-recycle if a petal stalls short of uDespawnX due to turbulence.
     float cycleFade = 1.0 - ss(0.97, 1.0, age);
 
-    vAlpha = fadeIn * min(cycleFade, edgeFade);
+    vAlpha = born * fadeIn * min(cycleFade, edgeFade);
 
     vNormal = normalize(norm);
 

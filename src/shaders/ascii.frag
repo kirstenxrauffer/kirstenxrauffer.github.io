@@ -31,6 +31,7 @@ uniform float     uTonalStrength;  // tonal base layer strength (0 = off, 1 = no
 uniform float     uFillMaxLayers;  // max fill overstrike layers (1-12)
 uniform float     uFillLayerAlpha; // opacity per fill layer (0.05-0.5)
 uniform float     uDebugEdges;     // >0.5 = show raw edge magnitude as red
+uniform float     uTypeDebug;      // >0.5 = show reveal order (green=outline, red=filler)
 uniform float     uTransparent;    // >0.5 = output ink-only over transparent bg (overlay mode)
 uniform float     uWordCount;
 uniform float     uWordMaxLen;
@@ -461,6 +462,34 @@ float clearZoneVisibility(vec2 uv) {
 }
 
 // ---------------------------------------------------------------------------
+// Typewriter reveal order
+// ---------------------------------------------------------------------------
+// Returns 0..1 — how far into a typing pass this cell gets struck. Cells type
+// left-to-right, then top-to-bottom.
+//
+// The catch is speed. Strict per-cell-row reading order puts one full row in
+// the pass-0 window divided by the row count: ~102 rows in ~4.2 s is 41 ms
+// per row, under three frames at 60 fps, with the carriage crossing 1500 px
+// in that time. No viewer resolves that as horizontal motion — all you see is
+// rows dropping in, i.e. a top-to-bottom wipe.
+//
+// So rows are grouped into *type lines* rowsPerLine cells tall, and one line
+// is one sweep of the carriage. main() sizes the lines off the pass duration
+// (LINE_SECONDS) so a sweep lasts ~20 frames instead of ~2, which is what
+// makes the left-to-right motion legible.
+//
+// RAGGED_CELLS of per-cell slop keeps the sweep edge from reading as a hard
+// vertical wipe — struck ink lands unevenly.
+#define RAGGED_CELLS 4.0
+float typeFrac(vec2 id, vec2 gridDims, float rowsPerLine, float numLines) {
+    float rowIdx  = gridDims.y - 1.0 - id.y;      // 0 = top row of the screen
+    float line    = floor(rowIdx / rowsPerLine);
+    float colFrac = id.x / max(gridDims.x, 1.0);  // 0 = left edge, 1 = right
+    colFrac += (hash21(id + 4.0) - 0.5) * (RAGGED_CELLS / max(gridDims.x, 1.0));
+    return clamp((line + colFrac) / numLines, 0.0, 1.0);
+}
+
+// ---------------------------------------------------------------------------
 // Main — edge-priority multi-strike rendering
 // ---------------------------------------------------------------------------
 void main() {
@@ -486,31 +515,77 @@ void main() {
     float scrambleT = clamp(uTime / uScrambleDuration, 0.0, 1.0);
 
     // ── Typewriter timing ────────────────────────────────────────────────
-    // Cells type in reading order: left-to-right within a row, top-to-bottom
-    // across rows. Each overstrike layer is a separate full sweep — pass
-    // `s+1` doesn't start until pass `s` has typed every visible cell.
+    // ONE carriage sweep inks a cell completely: its edge glyph, every fill
+    // overstrike and every tonal layer land as the head passes over, the
+    // extra strikes trailing just behind so ink density ramps up in a short
+    // tail rather than arriving all at once.
     //
-    // vUv.y=1 maps to the highest cellId.y (top of screen), so we invert the
-    // row index so the top row types first.
-    //
-    // Time allocation: at typical resolutions there are ~28k cells. With
-    // many passes packed into a 7s window, the wave-front advances faster
-    // than a row per frame, which collapses the LTR-within-row motion into
-    // perceived row pops. Pass 0 is the user-visible "draw" — give it the
-    // bulk of the duration (BASE_PASS_FRAC) so the within-row LTR sweep
-    // resolves at frame rate. Overstrike passes 1..N share the remainder
-    // as quick darkening sweeps where per-cell timing is less critical.
+    // This was previously structured as separate full-screen passes — pass
+    // s+1 starting only once pass s had typed every cell. That reads as a
+    // top-to-bottom wipe however carefully pass 0 is paced, because the
+    // fill's visible mass comes from strikes 1..N, and those passes each had
+    // to cross the entire screen in a fraction of the budget (~78 ms per
+    // line) — far too fast to resolve as horizontal motion. Folding every
+    // strike into the cell's own sweep is what makes the texture layer type
+    // left-to-right instead of fading in top-to-bottom.
     vec2 gridDims = max(ceil(uResolution / cellPx), vec2(1.0));
-    float totalGridCells = gridDims.x * gridDims.y;
-    const float BASE_PASS_FRAC = 0.6;
-    float passFrac0 = (uFillMaxLayers <= 1.0) ? 1.0 : BASE_PASS_FRAC;
-    float passFracN = (uFillMaxLayers <= 1.0)
-        ? 0.0
-        : (1.0 - BASE_PASS_FRAC) / (uFillMaxLayers - 1.0);
-    // Wave-front anti-alias window. Kept tight so the fade band is narrower
-    // than a row's worth of typing time — otherwise the smooth fade smears
-    // the LTR sweep across rows, making it read as TTB-only.
-    const float TYPE_FADE = 0.0006;
+
+    // Type-line height balances two goals pulling in opposite directions:
+    //   • short lines — a tall line reveals a chunky slab of image at once
+    //   • slow sweeps — a carriage pass has to last enough frames to read as
+    //     horizontal motion; strict one-cell-row reading order is ~40 ms per
+    //     line, under three frames at 60 fps, which is what made the reveal
+    //     look top-to-bottom in the first place.
+    // Aim for TARGET_LINE_ROWS and only lengthen the lines when that would
+    // push a sweep below MIN_LINE_SECONDS.
+    const float TARGET_LINE_ROWS = 3.0;
+    const float MIN_LINE_SECONDS = 0.18;
+    float wantLines   = ceil(gridDims.y / TARGET_LINE_ROWS);
+    float maxLines    = max(floor(uScrambleDuration / MIN_LINE_SECONDS), 1.0);
+    float rowsPerLine = max(ceil(gridDims.y / min(wantLines, maxLines)), 1.0);
+    float numLines    = ceil(gridDims.y / rowsPerLine);
+
+    // ── What actually makes the sweep read as horizontal ─────────────────
+    // A hard-edged reveal only reads as left-to-right when the line is tall
+    // enough for the newly-inked sliver to register — which is why the first
+    // version of this needed 9-row (76 px) lines, and read as slabs. At 3
+    // rows the sliver is 26 px and the eye goes back to seeing nothing but
+    // the image growing downward. Line height cannot serve both goals.
+    //
+    // So the horizontal cue comes from ink SETTLING instead: a cell fades in
+    // over FADE_SWEEPS of carriage travel, and its overstrikes trail by
+    // STRIKE_LAG each, leaving a long density ramp behind the head. Measured
+    // in sweeps, that ramp lies ALONG the line — so every active line carries
+    // a dark-left / faint-right gradient that visibly slides rightward, no
+    // matter how few rows tall the line is.
+    //
+    // Widening the fade was a trap under the old strict reading order, where
+    // it smeared across rows and collapsed back into a top-to-bottom wipe.
+    // Inside a line sweep it stays horizontal, which is what makes it safe.
+    const float FADE_SWEEPS = 0.35;   // per-cell fade-in, in carriage sweeps
+    const float STRIKE_LAG  = 0.10;   // per-overstrike trail, in sweeps
+    float TYPE_FADE = FADE_SWEEPS / numLines;
+    float strikeLag = STRIKE_LAG  / numLines;
+
+    // ── Two carriages ────────────────────────────────────────────────────
+    // The outline layer (edge contour glyphs) types first; the filler layer
+    // (density/texture glyphs and the tonal @ base) follows FILL_DELAY_S
+    // seconds behind on the same path. Two heads at different points on the
+    // page is the strongest read of "left-to-right, then down" the reveal
+    // has: at any moment there is a live band of bare outlines that the
+    // filler has not caught up to yet, and that band is bounded left and
+    // right by the two carriage positions.
+    const float FILL_DELAY_S = 1.0;
+    float fillDelay = FILL_DELAY_S / max(uScrambleDuration, 0.001);
+
+    // Reserve room at both ends: the first cell fades in from t=0 instead of
+    // popping in at full ink, and the trailing filler carriage — delay plus
+    // overstrike tail — still finishes before scrambleT clamps at 1. Tonal
+    // runs 5 layers and fill runs up to uFillMaxLayers, so the tail has to
+    // cover whichever is deeper.
+    float sweepStart = TYPE_FADE;
+    float sweepSpan  = max(1.0 - sweepStart - fillDelay
+                             - strikeLag * max(uFillMaxLayers - 1.0, 4.0), 0.05);
 
     // ── Accumulate ink across neighboring cells ───────────────────────────
     float edgeInk = 0.0;      // edge contour characters (full priority)
@@ -558,13 +633,15 @@ void main() {
             vec3 edgeCellInk = vec3(inkVal * 0.5);
 
             // ── Typewriter timing for this cell ───────────────────────
-            // Invert nId.y so the top row of the screen types first.
-            // cellBaseSettle is pass-0 timing — used by edges, Neill, and
-            // the s=0 fill strike. Subsequent strikes scale by passFracN.
-            float typeOrder   = (gridDims.y - 1.0 - nId.y) * gridDims.x + nId.x;
-            float cellFrac    = clamp(typeOrder / totalGridCells, 0.0, 1.0);
-            float cellBaseSettle = cellFrac * passFrac0;
+            // Two settle times: cellBaseSettle is when the leading outline
+            // carriage reaches this cell, cellFillSettle when the trailing
+            // filler carriage does. Fill overstrikes trail the latter by
+            // strikeLag each.
+            float cellFrac    = typeFrac(nId, gridDims, rowsPerLine, numLines);
+            float cellBaseSettle = sweepStart + cellFrac * sweepSpan;
+            float cellFillSettle = cellBaseSettle + fillDelay;
             float cellBaseAlpha  = smoothstep(cellBaseSettle - TYPE_FADE, cellBaseSettle, scrambleT);
+            float cellFillAlpha  = smoothstep(cellFillSettle - TYPE_FADE, cellFillSettle, scrambleT);
 
             // ── Edge detection (dilated: sample at centre + 4 offsets) ────
             // Dilating the edge detection ensures edges that pass BETWEEN
@@ -614,15 +691,11 @@ void main() {
 
                         float fs = float(s);
 
-                        // Strike s is part of pass s — it starts only after
-                        // pass s-1 has typed every cell. Pass 0 spans
-                        // passFrac0 of total time (the visible draw),
-                        // passes 1..N each span passFracN.
-                        float strikeStart = (fs < 0.5)
-                            ? 0.0
-                            : (passFrac0 + (fs - 1.0) * passFracN);
-                        float thisPassDur = (fs < 0.5) ? passFrac0 : passFracN;
-                        float strikeSettle = strikeStart + cellFrac * thisPassDur;
+                        // Strike s lands while the filler carriage is still
+                        // near this cell, trailing the first strike by
+                        // s * lag — the cell darkens as the head moves on,
+                        // instead of waiting for its own full-screen pass.
+                        float strikeSettle = cellFillSettle + fs * strikeLag;
                         if (scrambleT < strikeSettle - TYPE_FADE) break;
                         float strikeAlpha = smoothstep(strikeSettle - TYPE_FADE, strikeSettle, scrambleT);
 
@@ -665,8 +738,11 @@ void main() {
                     // with 'M'. Persian Cat Head p.82 note: "overtype with letter M
                     // to darken". A single extra strike with heavier alpha pushes
                     // deep shadows toward the authentic built-up-ink feel.
+                    // Neill's 'M' restrike is a darkening pass over the fill,
+                    // so it rides the trailing filler carriage, not the
+                    // leading outline one.
                     if (uNeillOverstrike > 0.5 && darkness > 0.85 &&
-                        scrambleT >= cellBaseSettle - TYPE_FADE) {
+                        scrambleT >= cellFillSettle - TYPE_FADE) {
                         vec2 nJit = (hash22(nId + 999.0) - 0.5) * cellUv * 0.5;
                         float nScale = 0.92 + hash21(nId + 888.0) * 0.16;
                         vec2 nCell = cellUv * nScale;
@@ -675,7 +751,7 @@ void main() {
                             nLUv.y >= -0.05 && nLUv.y <= 1.05) {
                             nLUv = clamp(nLUv, 0.0, 1.0);
                             float g  = sampleChar(uNeillCharIdx, nLUv);
-                            float a  = g * uFillLayerAlpha * 1.3 * gate * cellBaseAlpha;
+                            float a  = g * uFillLayerAlpha * 1.3 * gate * cellFillAlpha;
                             fillInk   += a;
                             fillColor += cellInk * a;
                         }
@@ -793,17 +869,14 @@ void main() {
             // else the glyph is clipped to a thin sliver (partial @).
             vec2 tCenter = (tId + 0.5) * cellUv - off;
 
-            // Tonal pass i types in reading order across its offset grid,
-            // gated to the same time window as fill strike i. `continue` on
-            // a not-yet-typed cell — different i's use different grids, so
-            // breaking would be unsafe (later i's tId may have lower order).
-            float tTypeOrder = (gridDims.y - 1.0 - tId.y) * gridDims.x + tId.x;
-            float tCellFrac = clamp(tTypeOrder / totalGridCells, 0.0, 1.0);
-            float tStrikeStart = (fi < 0.5)
-                ? 0.0
-                : (passFrac0 + (fi - 1.0) * passFracN);
-            float tThisPassDur = (fi < 0.5) ? passFrac0 : passFracN;
-            float tStrikeSettle = tStrikeStart + tCellFrac * tThisPassDur;
+            // The tonal @ base is part of the filler, so it rides the
+            // trailing carriage across its offset grid, on the same lag as
+            // fill strike i. `continue` on a not-yet-typed cell — different
+            // i's use different grids, so breaking would be unsafe (later
+            // i's tId may have lower order).
+            float tCellFrac = typeFrac(tId, gridDims, rowsPerLine, numLines);
+            float tStrikeSettle = sweepStart + tCellFrac * sweepSpan
+                                + fillDelay + fi * strikeLag;
             if (scrambleT < tStrikeSettle - TYPE_FADE) continue;
             float tStrikeAlpha = smoothstep(tStrikeSettle - TYPE_FADE, tStrikeSettle, scrambleT);
 
@@ -853,6 +926,23 @@ void main() {
     // Paper grain — only applied to the opaque paper path
     float grain = hash21(vUv * uResolution * 0.5 + uTime * 0.05) * 0.012;
     color += grain - 0.006;
+
+    // ── Debug: visualise the typewriter reveal order ──────────────────
+    // Content-independent view of the two carriages: GREEN once the outline
+    // layer has typed a cell, RED once the filler layer has, yellow where
+    // both have landed. Checking the sweep against the artwork itself is
+    // unreliable — wherever the picture is blank no ink appears, so the
+    // front looks like it jumps around. This shows the schedule alone.
+    if (uTypeDebug > 0.5) {
+        float dFrac     = typeFrac(cellId, gridDims, rowsPerLine, numLines);
+        float dBase     = sweepStart + dFrac * sweepSpan;
+        float outlineOn = smoothstep(dBase - TYPE_FADE, dBase, scrambleT);
+        float fillerOn  = smoothstep(dBase + fillDelay - TYPE_FADE,
+                                     dBase + fillDelay, scrambleT);
+        color    = vec3(fillerOn, outlineOn, 0.15);
+        preColor = color;
+        preAlpha = 1.0;
+    }
 
     // ── Debug: visualise raw edge magnitude ───────────────────────────
     if (uDebugEdges > 0.5) {

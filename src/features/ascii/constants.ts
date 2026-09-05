@@ -78,7 +78,13 @@ export const WORD_MAX_LEN = 5;  // longest word in the list
 export const ASCII_DEFAULTS = {
   cellSize:         8.5,       // px — character cell width on screen (smaller = more detail)
   tolerance:        0.05,    // detail threshold (lower = fill chars activate across more of the tonal range)
-  scrambleDuration: 7.0,     // seconds for scramble animation
+  // Seconds for the whole typewriter reveal. This is the carriage-speed knob:
+  // the shader types in left-to-right sweeps TARGET_LINE_ROWS cells tall
+  // (ascii.frag), so one sweep lasts scrambleDuration / ceil(rows / 3) — at
+  // 11 s on a ~102-row grid that's ~320 ms per sweep, slow enough to read as
+  // horizontal motion. Raising this slows the sweep; it cannot be slowed
+  // without lengthening the total, since sweep count is fixed by line height.
+  scrambleDuration: 11.0,
 };
 
 // Reuse the same hero image pool as the watercolor shader.

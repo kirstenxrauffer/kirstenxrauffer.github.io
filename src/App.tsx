@@ -280,7 +280,8 @@ function App() {
         onFairyClick={handleFairyClick}
         navOpen={navOpen}
         onGameStart={handleGameStart}
-        gameActive={activeGameId !== null}
+        onGameQuit={handleGameClose}
+        activeGameId={activeGameId}
       />
       <main className={mainClass}>
         <div className="app__routes" ref={routesRef}>
@@ -317,9 +318,11 @@ function App() {
         })()}
       </Suspense>
 
-      {/* Game overlay — renders whichever game the user picked from the prompt. */}
+      {/* Game overlay — renders whichever game the user picked from the prompt.
+          Keyed by id so switching games mid-play (via navi's in-game prompt)
+          always tears the old board down and mounts the new one fresh. */}
       {activeGameId && LoadedGame && (
-        <LoadedGame onEnd={handleGameEnd} onClose={handleGameClose} />
+        <LoadedGame key={activeGameId} onEnd={handleGameEnd} onClose={handleGameClose} />
       )}
     </div>
   );

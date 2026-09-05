@@ -40,13 +40,16 @@ export function buildPetalData(count: number, seed: number): PetalBuffers {
   const half = Math.floor(count / 2);
 
   for (let i = 0; i < count; i++) {
-    // All petals spawn from the left edge (x ≈ -100 maps to uSpawnX, the left viewport boundary).
-    // Births are staggered so at any time 20 petals are spread across their journey left → right.
+    // All petals spawn off-screen left (x ≈ -100 maps to uSpawnX, 1.5× the left
+    // viewport boundary) and drift right into frame.
     spawnPositions[i * 3]     = -(95 + rng() * 5);  // x ∈ [-100, -95] — remapped by uSpawnX in vertex shader
     spawnPositions[i * 3 + 1] = rng() * 16 + 14;    // y ∈ [14, 30] — matches visible Y frustum at z=[75,88], cam y=22
     spawnPositions[i * 3 + 2] = rng() * 4 + 72;     // z ∈ [72, 76] — 24–28 units from camera
 
-    // Stagger births evenly so all slots are populated by the first cycle end
+    // Stagger births evenly across one lifecycle so slots fill in one at a time and
+    // stay evenly spaced thereafter.  The vertex shader keeps a petal invisible until
+    // its birthTime (see `born`), so each one enters from uSpawnX rather than fading
+    // up mid-journey — including on the very first cycle.
     birthLifeSeedScale[i * 4]     = (i / count) * LIFE_DURATION;
     birthLifeSeedScale[i * 4 + 1] = LIFE_DURATION;
     birthLifeSeedScale[i * 4 + 2] = rng();

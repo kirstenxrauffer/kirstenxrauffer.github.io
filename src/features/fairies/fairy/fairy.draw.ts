@@ -12,8 +12,9 @@
 //   • Core desaturates 60 % → bright white light with a color hint at the edges.
 //   • Hue cycles ~2× faster (12 s vs 25 s) — subtle, not jarring.
 
-import type p5 from 'p5';
 import type { Fairy } from './fairy.types';
+import type { Painter } from '../render/painter';
+import { SpriteTable } from '../render/sprite';
 import {
   BODY,
   CANONICAL_CX,
@@ -56,8 +57,63 @@ const HOVER_GLOW_MULT    = 1.0;   // no additional expansion — hover size is a
 const HOVER_DESAT        = 0.35;  // desaturate 35% at full hover (softer white light w/ color hint)
 const HOVER_LIGHTNESS    = 0.07;  // +7% lightness at full hover
 
+const glowSprites = new SpriteTable();
+
+/** Drop cached glow bitmaps (call on sketch teardown). */
+export function clearGlowSprites(): void { glowSprites.clear(); }
+
+// Layer 0 sits at r = glowMaxR with jitter up to 0.12·glowMaxR, so the artwork
+// reaches 1.12·glowMaxR from the origin. 1.15 leaves a margin.
+const GLOW_EXTENT = GLOW_MAX_R * 1.15;
+
+/**
+ * Paints the 35-layer glow into local space centred on the origin.
+ *
+ * Split out of drawFairy so it can be cached: every input is passed in, and
+ * `hoverScale` / `angryScale` / `angryLift` / `baseSatScale` are hoisted out of
+ * the loop (they were recomputed 35× per frame despite not depending on `i`).
+ */
+function paintGlow(
+  p: Painter,
+  seed: number,
+  hue: number,
+  hoverT: number,
+  hoverScale: number,
+  angryScale: number,
+  angryLift: number,
+  baseSatScale: number,
+  glowMaxR: number,
+): void {
+  const rng = makeLCG(seed);
+  p.noStroke();
+
+  for (let i = 0; i < GLOW_LAYERS; i++) {
+    // t=0 → outermost ring, t=1 → innermost core.
+    const t = i / (GLOW_LAYERS - 1);
+    const r = glowMaxR * (1 - t);
+
+    // Watercolor jitter: outer rings wobble up to 12 % of their radius;
+    // jitter fraction tapers to 0 at the core so the centre stays solid.
+    const jitterFrac = (1 - t) * 0.12;
+    const jx = (rng() * 2 - 1) * r * jitterFrac;
+    const jy = (rng() * 2 - 1) * r * jitterFrac;
+
+    // Hardened: was t^2.5 * 80 — shallower curve + higher cap makes the core
+    // more opaque and gives the orb more visible substance.
+    const alpha = Math.pow(t, 2.0) * 44 * hoverScale * angryScale;
+
+    // At full hover: whiter center (reduced sat) and brighter lightness — "colored light" effect.
+    const sat = (100 - t * 35) / 100 * (1 - HOVER_DESAT * hoverT) * baseSatScale;
+    const lig = Math.min(1, (62 + t * 28) / 100 + HOVER_LIGHTNESS * hoverT + angryLift);
+
+    const [rc, gc, bc] = hslToRgb(hue / 360, sat, lig);
+    p.fill(rc, gc, bc, alpha);
+    p.circle(jx, jy, r * 2);
+  }
+}
+
 // hoverT: 0.0 = not hovered, 1.0 = fully hovered; smoothly interpolated by caller.
-export function drawFairy(p: p5, fairy: Fairy, now: number, hoverT: number): void {
+export function drawFairy(p: Painter, fairy: Fairy, now: number, hoverT: number): void {
   p.push();
   p.translate(fairy.pos.x, fairy.pos.y);
   p.scale(fairy.scale);
@@ -87,41 +143,37 @@ export function drawFairy(p: p5, fairy: Fairy, now: number, hoverT: number): voi
   // Glow radius expands at hover so the orb blooms into a large soft light.
   const glowMaxR = GLOW_MAX_R * (1 + (HOVER_GLOW_MULT - 1) * hoverT);
 
-  // Per-fairy LCG for stable per-layer positional jitter. Same sequence every
-  // frame because the seed and loop order never change between draws.
-  const rng = makeLCG(fairy.rngSeed);
+  // Loop-invariant terms, hoisted out of the 35-layer loop they used to sit in.
+  const pulse = Math.sin((now / HOVER_PULSE_PERIOD) * Math.PI * 2);
+  const fullHoverScale = HOVER_INTENSITY * (1 + HOVER_PULSE_AMP * pulse);
+  const hoverScale = 1.0 + (fullHoverScale - 1.0) * hoverT;
+  const angryScale = fairy.mood === 'angry' ? ANGRY_INTENSITY : 1.0;
+  const angryLift  = fairy.mood === 'angry' ? ANGRY_LIGHTNESS : 0;
+  const baseSatScale = moodPin ? moodPin.sat : BODY_SAT_SCALE;
 
-  for (let i = 0; i < GLOW_LAYERS; i++) {
-    // t=0 → outermost ring, t=1 → innermost core.
-    const t = i / (GLOW_LAYERS - 1);
-    const r = glowMaxR * (1 - t);
+  // Cache the glow bitmap rather than redrawing 35 discs every frame.
+  //
+  // Quantising the key is what makes this pay: at rest (hoverT 0, normal mood)
+  // the only live input is `hue`, which drifts one full cycle per HUE_PERIOD
+  // (25 s). Rounding to 2° means a re-render roughly every 139 ms — ~7/s instead
+  // of 60 — and a 2° shift on a lavender orb is imperceptible. While hovering,
+  // hoverT and the breathing pulse move the key every frame, which costs exactly
+  // what the old code cost, for the ~300 ms the transition lasts.
+  //
+  // Note `pulse` only reaches the artwork through hoverScale, and
+  // hoverScale === 1.0 whenever hoverT === 0 — so at rest the breath genuinely
+  // has no effect and does not invalidate the cache.
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const pxPerUnit = Math.max(0.25, fairy.scale * dpr * 1.5);
+  const key =
+    `${Math.round(hue / 2)}|${Math.round(hoverT * 32)}|${hoverScale.toFixed(3)}` +
+    `|${angryScale}|${angryLift}|${baseSatScale}|${fairy.rngSeed}|${pxPerUnit.toFixed(2)}`;
 
-    // Watercolor jitter: outer rings wobble up to 12 % of their radius;
-    // jitter fraction tapers to 0 at the core so the centre stays solid.
-    const jitterFrac = (1 - t) * 0.12;
-    const jx = (rng() * 2 - 1) * r * jitterFrac;
-    const jy = (rng() * 2 - 1) * r * jitterFrac;
-
-    // Light-source brightness: 3.5× peak, ±8% slow breathing. Blended via hoverT
-    // so there is no abrupt jump when the pointer crosses the trigger radius.
-    const pulse = Math.sin((now / HOVER_PULSE_PERIOD) * Math.PI * 2);
-    const fullHoverScale = HOVER_INTENSITY * (1 + HOVER_PULSE_AMP * pulse);
-    const hoverScale = 1.0 + (fullHoverScale - 1.0) * hoverT;
-    const angryScale = fairy.mood === 'angry' ? ANGRY_INTENSITY : 1.0;
-    // Hardened: was t^2.5 * 80 — shallower curve + higher cap makes the core
-    // more opaque and gives the orb more visible substance.
-    const alpha = Math.pow(t, 2.0) * 44 * hoverScale * angryScale;
-
-    // At full hover: whiter center (reduced sat) and brighter lightness — "colored light" effect.
-    const baseSatScale = moodPin ? moodPin.sat : BODY_SAT_SCALE;
-    const sat = (100 - t * 35) / 100 * (1 - HOVER_DESAT * hoverT) * baseSatScale;
-    const angryLift = fairy.mood === 'angry' ? ANGRY_LIGHTNESS : 0;
-    const lig = Math.min(1, (62 + t * 28) / 100 + HOVER_LIGHTNESS * hoverT + angryLift);
-
-    const [rc, gc, bc] = hslToRgb(hue / 360, sat, lig);
-    p.fill(rc, gc, bc, alpha);
-    p.circle(jx, jy, r * 2);
-  }
+  const sprite = glowSprites.get(`${fairy.rngSeed}`);
+  sprite.ensure(key, GLOW_EXTENT, pxPerUnit, (sp) =>
+    paintGlow(sp, fairy.rngSeed, hue, hoverT, hoverScale, angryScale, angryLift, baseSatScale, glowMaxR),
+  );
+  sprite.blit(p);
 
   p.pop();
   p.pop();
