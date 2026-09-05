@@ -439,14 +439,21 @@ float wordLookup(vec2 cellId, float edgeMag) {
 float clearZoneVisibility(vec2 uv) {
     const float WHITE_PROGRESS = 0.27;
     const float CLEAR_FADE     = 0.18;
+    // Portrait/mobile enlargement — must match watercolor.frag clearZoneMask().
+    const float MOBILE_GROW    = 1.15;
+    const float MOBILE_WIDEN   = 1.25;
 
     vec2 origin = vec2(uBloomOrigin.x - 0.02, uBloomOrigin.y);
 
     float viewAspect      = uResolution.x / uResolution.y;
     float portraitStretch = clamp(1.0 / viewAspect, 1.0, 2.0);
     float desktopSqueeze  = 1.0 - 25.0 / (uResolution.x * WHITE_PROGRESS);
-    float xStretch        = viewAspect > 1.0 ? desktopSqueeze : portraitStretch;
-    float mobileYStretch  = viewAspect < 1.0 ? 1.0 + 7.5 / (uResolution.y * WHITE_PROGRESS) : 1.0;
+    float xStretch        = viewAspect > 1.0
+                          ? desktopSqueeze
+                          : portraitStretch * MOBILE_GROW * MOBILE_WIDEN;
+    float mobileYStretch  = viewAspect < 1.0
+                          ? (1.0 + 7.5 / (uResolution.y * WHITE_PROGRESS)) * MOBILE_GROW
+                          : 1.0;
 
     float portraitFactor = clamp(1.0 / viewAspect - 1.0, 0.0, 1.0);
     origin.y -= portraitFactor * 0.036;

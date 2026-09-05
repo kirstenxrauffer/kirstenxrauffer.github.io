@@ -159,6 +159,15 @@ float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingCol
     const float WHITE_PROGRESS = 0.27;  // white fade radius (larger than ring)
     const float CLEAR_FADE     = 0.18;
 
+    // Portrait/mobile enlargement. Text columns are proportionally much wider
+    // relative to the viewport on a phone, so the desktop-tuned zone leaves too
+    // little white behind the copy. MOBILE_GROW scales the whole zone; the extra
+    // MOBILE_WIDEN factor applies on X only, pushing the horizontal fade past the
+    // screen edges so the full text measure sits on paper-white rather than in
+    // the falloff. Mirrored in ascii.frag clearZoneVisibility().
+    const float MOBILE_GROW  = 1.15;
+    const float MOBILE_WIDEN = 1.25;
+
     // Identical origin to revealMask — same fBm-offset bloom point.
     vec2 origin = vec2(
         uBloomOrigin.x + 0.12 * sin(uBloomSeed * 7.391) - 0.02,
@@ -182,9 +191,14 @@ float clearZoneMask(vec2 uv, float warpField, vec2 warpRg, out vec3 clearRingCol
     float viewAspect     = uResolution.x / uResolution.y;
     float portraitStretch = clamp(1.0 / viewAspect, 1.0, 2.0);
     float desktopSqueeze  = 1.0 - 25.0 / (uResolution.x * WHITE_PROGRESS);
-    float xStretch        = viewAspect > 1.0 ? desktopSqueeze : portraitStretch;
-    // Mobile/portrait only: extend vertical extent by 15 px total (7.5 px per side).
-    float mobileYStretch  = viewAspect < 1.0 ? 1.0 + 7.5 / (uResolution.y * WHITE_PROGRESS) : 1.0;
+    float xStretch        = viewAspect > 1.0
+                          ? desktopSqueeze
+                          : portraitStretch * MOBILE_GROW * MOBILE_WIDEN;
+    // Mobile/portrait only: extend vertical extent by 15 px total (7.5 px per side),
+    // then scale by MOBILE_GROW so the zone grows on both axes, not just width.
+    float mobileYStretch  = viewAspect < 1.0
+                          ? (1.0 + 7.5 / (uResolution.y * WHITE_PROGRESS)) * MOBILE_GROW
+                          : 1.0;
     // On portrait/mobile: shift the clear zone so it sits better under the main
     // content. portraitFactor is 0 on landscape, ~1 on a tall phone (390×844).
     // Y: 0.036 UV × 844 px ≈ 30 px down.
